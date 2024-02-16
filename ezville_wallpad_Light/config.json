@@ -24,7 +24,7 @@
 			"stopbits": 1
 		},
 		"socket": {
-			"address": "192.168.0.118",
+			"address": "192.168.0.51",
 			"port": 8899
 		},
 		"mqtt": {
