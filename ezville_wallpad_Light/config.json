@@ -39,8 +39,6 @@
 		"reboot_delay": 300,
 		"ew11_buffer_size": 128,
 		"ew11_timeout": 3600
-
-		
 		"serial_mode": "socket",
 		"entrance_mode": "new",
 		"wallpad_mode": "on",
@@ -105,9 +103,6 @@
 		"reboot_delay": "float",
 		"ew11_buffer_size": "int",
 		"ew11_timeout": "float"
-
-
-		
 		"serial_mode": "list(serial|socket)",
 		"entrance_mode": "list(full|new|minimal|off)",
 		"wallpad_mode": "list(on|off)",
