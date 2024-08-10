@@ -31,14 +31,27 @@ RS485_DEVICE = {
             "ack": 0xC1,
         },
     },
-    # 각방 난방 제어
     "thermostat": {
-        "query":    { "id": 0x36, "cmd": 0x01, },
-        "state":    { "id": 0x36, "cmd": 0x81, },
-        "last":     { },
-
-        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x00, },
-        "target":   { "id": 0x36, "cmd": 0x44, "ack": 0xC4, },
+        "state": {
+            "id": 0x36,
+            "cmd": 0x81,
+        },
+        "last": {},
+        "away": {
+            "id": 0x36,
+            "cmd": 0x46,
+            "ack": 0xC6,
+        },
+        "target": {
+            "id": 0x36,
+            "cmd": 0x44,
+            "ack": 0xC4,
+        },
+        "power": {
+            "id": 0x36,
+            "cmd": 0x43,
+            "ack": 0xC3,
+        },
     },
     
     "batch": {  # 안보임
@@ -73,20 +86,23 @@ DISCOVERY_PAYLOAD = {
             "cmd_t": "~/power/command",
         }
     ],
-    "thermostat": [ {
-        "_intg": "climate",
-        "~": "{prefix}/thermostat/{grp}_{id}",
-        "name": "{prefix}_thermostat_{grp}_{id}",
-        "mode_stat_t": "~/power/state",
-        "temp_stat_t": "~/target/state",
-        "temp_cmd_t": "~/target/command",
-        "curr_temp_t": "~/current/state",
-        "away_stat_t": "~/away/state",
-        "away_cmd_t": "~/away/command",
-        "modes": [ "off", "heat" ],
-        "min_temp": 5,
-        "max_temp": 40,
-    } ],
+    "thermostat": [
+        {
+            "_intg": "climate",
+            "~": "{prefix}/thermostat/{grp}_{id}",
+            "name": "{prefix}_thermostat_{grp}_{id}",
+            "mode_stat_t": "~/power/state",
+            "mode_cmd_t": "~/power/command",
+            "temp_stat_t": "~/target/state",
+            "temp_cmd_t": "~/target/command",
+            "curr_temp_t": "~/current/state",
+            "away_stat_t": "~/away/state",
+            "away_cmd_t": "~/away/command",
+            "modes": ["off", "heat"],
+            "min_temp": 5,
+            "max_temp": 40,
+        }
+    ],
     "plug": [
         {
             "_intg": "switch",
@@ -416,6 +432,10 @@ def mqtt_device(topics, payload):
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
     elif device == "thermostat":
+        if payload == "heat":
+            payload = 0x01
+        elif payload == "off":
+            payload = 0x00
         length = 8
         packet = bytearray(length)
         packet[0] = 0xF7
@@ -590,10 +610,10 @@ def serial_new_device(device, packet, idn=None):
         grp_id = int(packet[2] >> 4)
         room_count = int((int(packet[4]) - 5) / 2)
         
-        for id in range(1, room_count + 1):
+        for room_id in range(1, room_count + 1):
             payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, grp=grp_id, id=id)
-            payload["name"] = payload["name"].format(prefix=prefix, grp=grp_id, id=id)
+            payload["~"] = payload["~"].format(prefix=prefix, grp=grp_id, id=room_id)
+            payload["name"] = payload["name"].format(prefix=prefix, grp=grp_id, id=room_id)
 
             mqtt_discovery(payload)
 
@@ -676,40 +696,32 @@ def serial_receive_state(device, packet):
     elif device == "thermostat":
         grp_id = int(packet[2] >> 4)
         room_count = int((int(packet[4]) - 5) / 2)
-        
-        for id in range(1, room_count + 1):
-            topic1 = "{}/{}/{}_{}/power/state".format(prefix, device, grp_id, id)
-            topic2 = "{}/{}/{}_{}/away/state".format(prefix, device, grp_id, id)
-            topic3 = "{}/{}/{}_{}/target/state".format(prefix, device, grp_id, id)
-            topic4 = "{}/{}/{}_{}/current/state".format(prefix, device, grp_id, id)
-            
-            if ((packet[6] & 0x1F) >> (room_count - id)) & 1:
+
+        for thermostat_id in range(1, room_count + 1):
+            if ((packet[6] & 0x1F) >> (room_count - thermostat_id)) & 1:
                 value1 = "ON"
             else:
                 value1 = "OFF"
-            if ((packet[7] & 0x1F) >> (room_count - id)) & 1:
+            if ((packet[7] & 0x1F) >> (room_count - thermostat_id)) & 1:
                 value2 = "ON"
             else:
                 value2 = "OFF"
-            value3 = packet[8 + id * 2]
-            value4 = packet[9 + id * 2]
-            
-            if last_topic_list.get(topic1) != value1:
-                logger.info("publish to HA:   {} = {} ({})".format(topic1, value1, packet.hex()))
-                mqtt.publish(topic1, value1)
-                last_topic_list[topic1] = value1
-            if last_topic_list.get(topic2) != value2:
-                logger.info("publish to HA:   {} = {} ({})".format(topic2, value2, packet.hex()))
-                mqtt.publish(topic2, value2)
-                last_topic_list[topic2] = value2
-            if last_topic_list.get(topic3) != value3:
-                logger.info("publish to HA:   {} = {} ({})".format(topic3, value3, packet.hex()))
-                mqtt.publish(topic3, value3)
-                last_topic_list[topic3] = value3
-            if last_topic_list.get(topic4) != value4:
-                logger.info("publish to HA:   {} = {} ({})".format(topic4, value4, packet.hex()))
-                mqtt.publish(topic4, value4)
-                last_topic_list[topic4] = value4
+            for sub_topic, value in zip(
+                ["mode", "away", "target", "current"],
+                [
+                    value1,
+                    value2,
+                    packet[8 + thermostat_id * 2],
+                    packet[9 + thermostat_id * 2],
+                ],
+            ):
+                topic = f"{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
+                if last_topic_list.get(topic) != value:
+                    logger.debug(
+                        "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
+                    )
+                    mqtt.publish(topic, value)
+                    last_topic_list[topic] = value
                 
     elif device == "plug":
         grp_id = int(packet[2] >> 4)
