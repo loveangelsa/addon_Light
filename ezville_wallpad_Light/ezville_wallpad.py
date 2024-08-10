@@ -31,14 +31,16 @@ RS485_DEVICE = {
             "ack": 0xC1,
         },
     },
+    # 각방 난방 제어
     "thermostat": {
         "query":    { "id": 0x36, "cmd": 0x01, },
         "state":    { "id": 0x36, "cmd": 0x81, },
         "last":     { },
-        "power":    { "id": 0x36, "cmd": 0x43, "ack": 0x03, },
-        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x05, },
+
+        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x00, },
         "target":   { "id": 0x36, "cmd": 0x44, "ack": 0xC4, },
     },
+    
     "batch": {  # 안보임
         "state": {"id": 0x33, "cmd": 0x81},
         "press": {"id": 0x33, "cmd": 0x41, "ack": 0xC1},
