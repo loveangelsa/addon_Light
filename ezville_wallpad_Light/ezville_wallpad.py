@@ -32,6 +32,10 @@ RS485_DEVICE = {
         },
     },
     "thermostat": {
+        "query": {
+            "id": 0x36,
+            "cmd": 0x01,
+        },
         "state": {
             "id": 0x36,
             "cmd": 0x81,
@@ -39,8 +43,8 @@ RS485_DEVICE = {
         "last": {},
         "away": {
             "id": 0x36,
-            "cmd": 0x46,
-            "ack": 0xC6,
+            "cmd": 0x45,
+            "ack": 0x00,
         },
         "target": {
             "id": 0x36,
