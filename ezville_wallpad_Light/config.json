@@ -69,7 +69,7 @@
 			"max_retry": 20,
 			"early_response": 2,
 			"dump_time": 0,
-            	"intercom_header": "A45A"
+            "intercom_header": "A45A"
 		},
 		"log": {
 			"to_file": true,
