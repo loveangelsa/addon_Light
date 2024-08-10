@@ -12,22 +12,12 @@ from queue import Queue
 
 # DEVICE 별 패킷 정보
 RS485_DEVICE = {
-    'light': {
-        'state':    { 'id': '0E', 'cmd': '81' },
-
-        'power':    { 'id': '0E', 'cmd': '41', 'ack': 'C1' }
-    },
     'thermostat': {
         'state':    { 'id': '36', 'cmd': '81' },
         
         'power':    { 'id': '36', 'cmd': '43', 'ack': 'C3' },
         'away':    { 'id': '36', 'cmd': '45', 'ack': 'C5' },
         'target':   { 'id': '36', 'cmd': '44', 'ack': 'C4' }
-    },
-    'plug': {
-        'state':    { 'id': '50', 'cmd': '81' },
-
-        'power':    { 'id': '50', 'cmd': '43', 'ack': 'C3' }
     },
     'gasvalve': {
         'state':    { 'id': '12', 'cmd': '81' },
@@ -43,23 +33,15 @@ RS485_DEVICE = {
 
 # MQTT Discovery를 위한 Preset 정보
 DISCOVERY_DEVICE = {
-    'ids': ['ezville_wallpad',],
-    'name': 'ezville_wallpad',
-    'mf': 'EzVille',
-    'mdl': 'EzVille Wallpad',
-    'sw': 'ktdo79/addons/ezville_wallpad',
+    'ids': ['ezville_wallpad2',],
+    'name': 'ezville_wallpad2',
+    'mf': 'EzVille2',
+    'mdl': 'EzVille Wallpad2',
+    'sw': 'loveangelsa/addons_Light/ezville_wallpad_Light',
 }
 
 # MQTT Discovery를 위한 Payload 정보
 DISCOVERY_PAYLOAD = {
-    'light': [ {
-        '_intg': 'light',
-        '~': 'ezville/light_{:0>2d}_{:0>2d}',
-        'name': 'ezville_light_{:0>2d}_{:0>2d}',
-        'opt': True,
-        'stat_t': '~/power/state',
-        'cmd_t': '~/power/command'
-    } ],
     'thermostat': [ {
         '_intg': 'climate',
         '~': 'ezville/thermostat_{:0>2d}_{:0>2d}',
@@ -73,28 +55,6 @@ DISCOVERY_PAYLOAD = {
         'modes': [ 'heat', 'off' ],     # 외출 모드는 off로 매핑
         'min_temp': '5',
         'max_temp': '40'
-    } ],
-    'plug': [ {
-        '_intg': 'switch',
-        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
-        'name': 'ezville_plug_{:0>2d}_{:0>2d}',
-        'stat_t': '~/power/state',
-        'cmd_t': '~/power/command',
-        'icon': 'mdi:leaf'
-    },
-    {
-        '_intg': 'binary_sensor',
-        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
-        'name': 'ezville_plug-automode_{:0>2d}_{:0>2d}',
-        'stat_t': '~/auto/state',
-        'icon': 'mdi:leaf'
-    },
-    {
-        '_intg': 'sensor',
-        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
-        'name': 'ezville_plug_{:0>2d}_{:0>2d}_powermeter',
-        'stat_t': '~/current/state',
-        'unit_of_meas': 'W'
     } ],
     'gasvalve': [ {
         '_intg': 'switch',
@@ -388,37 +348,8 @@ def ezville_loop(config):
                     if STATE_PACKET or ACK_PACKET:
                         # MSG_CACHE에 없는 새로운 패킷이거나 FORCE_UPDATE 실행된 경우만 실행
                         if MSG_CACHE.get(packet[0:10]) != packet[10:] or FORCE_UPDATE:
-                            name = STATE_HEADER[packet[2:4]][0]                            
-                            if name == 'light':
-                                # ROOM ID
-                                rid = int(packet[5], 16)
-                                # ROOM의 light 갯수 + 1
-                                slc = int(packet[8:10], 16) 
-                                
-                                for id in range(1, slc):
-                                    discovery_name = '{}_{:0>2d}_{:0>2d}'.format(name, rid, id)
-                                    
-                                    if discovery_name not in DISCOVERY_LIST:
-                                        DISCOVERY_LIST.append(discovery_name)
-                                    
-                                        payload = DISCOVERY_PAYLOAD[name][0].copy()
-                                        payload['~'] = payload['~'].format(rid, id)
-                                        payload['name'] = payload['name'].format(rid, id)
-                                   
-                                        # 장치 등록 후 DISCOVERY_DELAY초 후에 State 업데이트
-                                        await mqtt_discovery(payload)
-                                        await asyncio.sleep(DISCOVERY_DELAY)
-                                    
-                                    # State 업데이트까지 진행
-                                    onoff = 'ON' if int(packet[10 + 2 * id: 12 + 2 * id], 16) > 0 else 'OFF'
-                                        
-                                    await update_state(name, 'power', rid, id, onoff)
-                                    
-                                    # 직전 처리 State 패킷은 저장
-                                    if STATE_PACKET:
-                                        MSG_CACHE[packet[0:10]] = packet[10:]
-                                                                                    
-                            elif name == 'thermostat':
+                            name = STATE_HEADER[packet[2:4]][0]                                 
+                            if name == 'thermostat':
                                 # room 갯수
                                 rc = int((int(packet[8:10], 16) - 5) / 2)
                                 # room의 조절기 수 (현재 하나 뿐임)
@@ -465,51 +396,7 @@ def ezville_loop(config):
                                     # Ack 패킷도 State로 저장
                                     MSG_CACHE['F7361F810F'] = packet[10:]
                                         
-                            # plug는 ACK PACKET에 상태 정보가 없으므로 STATE_PACKET만 처리
-                            elif name == 'plug' and STATE_PACKET:
-                                if STATE_PACKET:
-                                    # ROOM ID
-                                    rid = int(packet[5], 16)
-                                    # ROOM의 plug 갯수
-                                    spc = int(packet[10:12], 16) 
-                                
-                                    for id in range(1, spc + 1):
-                                        discovery_name = '{}_{:0>2d}_{:0>2d}'.format(name, rid, id)
 
-                                        if discovery_name not in DISCOVERY_LIST:
-                                            DISCOVERY_LIST.append(discovery_name)
-                                    
-                                            for payload_template in DISCOVERY_PAYLOAD[name]:
-                                                payload = payload_template.copy()
-                                                payload['~'] = payload['~'].format(rid, id)
-                                                payload['name'] = payload['name'].format(rid, id)
-                                   
-                                                # 장치 등록 후 DISCOVERY_DELAY초 후에 State 업데이트
-                                                await mqtt_discovery(payload)
-                                                await asyncio.sleep(DISCOVERY_DELAY)  
-                                    
-                                        # BIT0: 대기전력 On/Off, BIT1: 자동모드 On/Off
-                                        # 위와 같지만 일단 on-off 여부만 판단
-                                        onoff = 'ON' if int(packet[7 + 6 * id], 16) > 0 else 'OFF'
-                                        autoonoff = 'ON' if int(packet[6 + 6 * id], 16) > 0 else 'OFF'
-                                        power_num = '{:.2f}'.format(int(packet[8 + 6 * id: 12 + 6 * id], 16) / 100)
-                                        
-                                        await update_state(name, 'power', rid, id, onoff)
-                                        await update_state(name, 'auto', rid, id, onoff)
-                                        await update_state(name, 'current', rid, id, power_num)
-                                    
-                                        # 직전 처리 State 패킷은 저장
-                                        MSG_CACHE[packet[0:10]] = packet[10:]
-                                else:
-                                    # ROOM ID
-                                    rid = int(packet[5], 16)
-                                    # ROOM의 plug 갯수
-                                    sid = int(packet[10:12], 16) 
-                                
-                                    onoff = 'ON' if int(packet[13], 16) > 0 else 'OFF'
-                                    
-                                    await update_state(name, 'power', rid, id, onoff)
-                                        
                             elif name == 'gasvalve':
                                 # Gas Value는 하나라서 강제 설정
                                 rid = 1
@@ -683,48 +570,6 @@ def ezville_loop(config):
                         if debug:
                             log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd, statcmd))
 
-#                    elif device == 'Fan':
-#                        if topics[2] == 'power':
-#                            sendcmd = DEVICE_LISTS[device][idx].get('command' + value)
-#                            recvcmd = DEVICE_LISTS[device][idx].get('state' + value) if value == 'ON' else [
-#                                DEVICE_LISTS[device][idx].get('state' + value)]
-#                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-#                            if debug:
-#                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-#                        elif topics[2] == 'speed':
-#                            speed_list = ['LOW', 'MEDIUM', 'HIGH']
-#                            if value in speed_list:
-#                                index = speed_list.index(value)
-#                                sendcmd = DEVICE_LISTS[device][idx]['CHANGE'][index]
-#                                recvcmd = [DEVICE_LISTS[device][idx]['stateON'][index]]
-#                                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-#                                if debug:
-#                                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-
-                elif device == 'light':                         
-                    pwr = '01' if value == 'ON' else '00'
-                        
-                    sendcmd = checksum('F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['cmd'] + '030' + str(sid) + pwr + '000000')
-                    recvcmd = 'F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['ack']
-                    statcmd = [key, value]
-                    
-                    await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-                               
-                    if debug:
-                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd, statcmd))
-                                
-                elif device == 'plug':                         
-                    pwr = '01' if value == 'ON' else '00'
-
-                    sendcmd = checksum('F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['cmd'] + '020' + str(sid) + pwr + '0000')
-                    recvcmd = 'F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['ack']
-                    statcmd = [key, value]
-                        
-                    await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-                               
-                    if debug:
-                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd, statcmd))
-                                
                 elif device == 'gasvalve':
                     # 가스 밸브는 ON 제어를 받지 않음
                     if value == 'OFF':
