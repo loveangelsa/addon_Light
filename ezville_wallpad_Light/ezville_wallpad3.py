@@ -66,8 +66,8 @@ RS485_DEVICE = {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
     },
-    'gasvalve': {
-        "state": {"id": 0x12', "cmd": 0x81},
+    "gasvalve": {
+        "state": {"id": 0x12, "cmd": 0x81},
         "power": {"id": 0x12', "cmd": 0x41, "ack": 0xC1} # 잠그기만 가능
     }
 }
