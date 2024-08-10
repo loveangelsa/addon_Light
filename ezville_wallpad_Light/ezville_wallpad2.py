@@ -33,11 +33,11 @@ RS485_DEVICE = {
 
 # MQTT Discovery를 위한 Preset 정보
 DISCOVERY_DEVICE = {
-    'ids': ['ezville_wallpad2',],
-    'name': 'ezville_wallpad2',
-    'mf': 'EzVille2',
-    'mdl': 'EzVille Wallpad2',
-    'sw': 'loveangelsa/addons_Light/ezville_wallpad_Light',
+    'ids': ['ezville_wallpad',],
+    'name': 'ezville_wallpad',
+    'mf': 'EzVille',
+    'mdl': 'EzVille Wallpad',
+    'sw': 'loveangelsa/addon_Light/ezville_wallpad',
 }
 
 # MQTT Discovery를 위한 Payload 정보
@@ -146,7 +146,7 @@ EW11_SEND_TOPIC = EW11_TOPIC + '/send'
 
 
 # Main Function
-def ezville_loop(config):
+def ezville_loop():
     
     # Log 생성 Flag
     debug = true
@@ -154,11 +154,11 @@ def ezville_loop(config):
     ew11_log = true
     
     # 통신 모드 설정: mixed, socket, mqtt
-    comm_mode = socket
+    comm_mode = mqtt
     
     # Socket 정보
-    SOC_ADDRESS = 192.168.0.137
-    SOC_PORT = 1883
+    SOC_ADDRESS = '192.168.0.137'
+    SOC_PORT = '1883'
     
     # EW11 혹은 HA 전달 메시지 저장소
     MSG_QUEUE = Queue()
