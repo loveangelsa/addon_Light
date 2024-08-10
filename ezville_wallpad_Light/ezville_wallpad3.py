@@ -23,6 +23,7 @@ import threading
 import telnetlib
 import random
 
+
 RS485_DEVICE = {
     "light": {
         "state": {
@@ -711,8 +712,9 @@ def serial_new_device(device, packet, idn=None):
     elif device in DISCOVERY_PAYLOAD:
         for payloads in DISCOVERY_PAYLOAD[device]:
             payload = payloads.copy()
-
-            payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
+            payload["~"] = payload["~"].format(prefix=prefix, idn=idn) 
+                if "{prefix}" in payload["~"] and "{idn}" in payload["~"] 
+                else payload["~"]
             payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
 
             # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
@@ -1003,6 +1005,7 @@ def ezville_loop(config):
     SOC_ADDRESS = config['ew11_server']
     SOC_PORT = config['ew11_port']
     
+    from queue import Queue
     # EW11 혹은 HA 전달 메시지 저장소
     MSG_QUEUE = Queue()
     
