@@ -1271,7 +1271,7 @@ def ezville_loop(config):
                                     MSG_CACHE[packet[0:10]] = packet[10:]
                             
                             # 일괄차단기 ACK PACKET은 상태 업데이트에 반영하지 않음
-                            elif name == ""batch" and STATE_PACKET:
+                            elif name == "batch" and STATE_PACKET:
                                 # 일괄차단기는 하나라서 강제 설정
                                 rid = 1
                                 # 일괄차단기는 하나라서 강제 설정
