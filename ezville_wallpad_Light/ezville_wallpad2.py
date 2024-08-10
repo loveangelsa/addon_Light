@@ -1,3 +1,4 @@
+
 import paho.mqtt.client as mqtt
 import json
 import time
@@ -33,15 +34,16 @@ RS485_DEVICE = {
 
 # MQTT Discovery를 위한 Preset 정보
 DISCOVERY_DEVICE = {
-    'ids': ['ezville_wallpad2',],
-    'name': 'ezville_wallpad2',
-    'mf': 'EzVille2',
-    'mdl': 'EzVille Wallpad2',
-    'sw': 'loveangelsa/addon_Light/ezville_wallpad',
+    'ids': ['ezville_wallpad',],
+    'name': 'ezville_wallpad',
+    'mf': 'EzVille',
+    'mdl': 'EzVille Wallpad',
+    'sw': 'ktdo79/addons/ezville_wallpad',
 }
 
 # MQTT Discovery를 위한 Payload 정보
 DISCOVERY_PAYLOAD = {
+
     'thermostat': [ {
         '_intg': 'climate',
         '~': 'ezville/thermostat_{:0>2d}_{:0>2d}',
@@ -55,6 +57,21 @@ DISCOVERY_PAYLOAD = {
         'modes': [ 'heat', 'off' ],     # 외출 모드는 off로 매핑
         'min_temp': '5',
         'max_temp': '40'
+    } ],
+
+    {
+        '_intg': 'binary_sensor',
+        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
+        'name': 'ezville_plug-automode_{:0>2d}_{:0>2d}',
+        'stat_t': '~/auto/state',
+        'icon': 'mdi:leaf'
+    },
+    {
+        '_intg': 'sensor',
+        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
+        'name': 'ezville_plug_{:0>2d}_{:0>2d}_powermeter',
+        'stat_t': '~/current/state',
+        'unit_of_meas': 'W'
     } ],
     'gasvalve': [ {
         '_intg': 'switch',
@@ -146,19 +163,19 @@ EW11_SEND_TOPIC = EW11_TOPIC + '/send'
 
 
 # Main Function
-def ezville_loop():
+def ezville_loop(config):
     
     # Log 생성 Flag
-    debug = true
-    mqtt_log = true
-    ew11_log = true
+    debug = config['DEBUG_LOG']
+    mqtt_log = config['MQTT_LOG']
+    ew11_log = config['EW11_LOG']
     
     # 통신 모드 설정: mixed, socket, mqtt
-    comm_mode = mqtt
+    comm_mode = config['mode']
     
     # Socket 정보
-    SOC_ADDRESS = '192.168.0.137'
-    SOC_PORT = '1883'
+    SOC_ADDRESS = config['ew11_server']
+    SOC_PORT = config['ew11_port']
     
     # EW11 혹은 HA 전달 메시지 저장소
     MSG_QUEUE = Queue()
@@ -173,7 +190,7 @@ def ezville_loop():
     MSG_CACHE = {}
     
     # MQTT Discovery Que
-    DISCOVERY_DELAY = 0.2
+    DISCOVERY_DELAY = config['discovery_delay']
     DISCOVERY_LIST = []
     
     # EW11 전달 패킷 중 처리 후 남은 짜투리 패킷 저장
@@ -181,27 +198,27 @@ def ezville_loop():
     
     # 강제 주기적 업데이트 설정 - 매 force_update_period 마다 force_update_duration초간 HA 업데이트 실시
     FORCE_UPDATE = False
-    FORCE_MODE = true
-    FORCE_PERIOD = 600
-    FORCE_DURATION = 2
+    FORCE_MODE = config['force_update_mode']
+    FORCE_PERIOD = config['force_update_period']
+    FORCE_DURATION = config['force_update_duration']
     
     # Command를 EW11로 보내는 방식 설정 (동시 명령 횟수, 명령 간격 및 재시도 횟수)
-    CMD_INTERVAL = 0.5
-    CMD_RETRY_COUNT = 30
-    FIRST_WAITTIME = 0.5
-    RANDOM_BACKOFF = true
+    CMD_INTERVAL = config['command_interval']
+    CMD_RETRY_COUNT = config['command_retry_count']
+    FIRST_WAITTIME = config['first_waittime']
+    RANDOM_BACKOFF = config['random_backoff']
     
     # State 업데이트 루프 / Command 실행 루프 / Socket 통신으로 패킷 받아오는 루프 / Restart 필요한지 체크하는 루프의 Delay Time 설정
-    STATE_LOOP_DELAY = 0.2
-    COMMAND_LOOP_DELAY = 0.2
-    SERIAL_RECV_DELAY = 30
-    RESTART_CHECK_DELAY = 2.0
+    STATE_LOOP_DELAY = config['state_loop_delay']
+    COMMAND_LOOP_DELAY = config['command_loop_delay']
+    SERIAL_RECV_DELAY = config['serial_recv_delay']
+    RESTART_CHECK_DELAY = config['restart_check_delay']
     
     # EW11에 설정된 BUFFER SIZE
-    EW11_BUFFER_SIZE = 128
+    EW11_BUFFER_SIZE = config['ew11_buffer_size']
     
     # EW11 동작상태 확인용 메시지 수신 시간 체크 주기 및 체크용 시간 변수
-    EW11_TIMEOUT = 3600
+    EW11_TIMEOUT = config['ew11_timeout']
     last_received_time = time.time()
     
     # EW11 재시작 확인용 Flag
@@ -214,8 +231,8 @@ def ezville_loop():
     ADDON_STARTED = False
  
     # Reboot 이후 안정적인 동작을 위한 제어 Flag
-    REBOOT_CONTROL = false
-    REBOOT_DELAY = 300
+    REBOOT_CONTROL = config['reboot_control']
+    REBOOT_DELAY = config['reboot_delay']
 
     # 시작 시 인위적인 Delay 필요시 사용
     startup_delay = 0
@@ -348,7 +365,7 @@ def ezville_loop():
                     if STATE_PACKET or ACK_PACKET:
                         # MSG_CACHE에 없는 새로운 패킷이거나 FORCE_UPDATE 실행된 경우만 실행
                         if MSG_CACHE.get(packet[0:10]) != packet[10:] or FORCE_UPDATE:
-                            name = STATE_HEADER[packet[2:4]][0]                                 
+                            name = STATE_HEADER[packet[2:4]][0]                                                   
                             if name == 'thermostat':
                                 # room 갯수
                                 rc = int((int(packet[8:10], 16) - 5) / 2)
@@ -395,8 +412,7 @@ def ezville_loop():
                                 else:
                                     # Ack 패킷도 State로 저장
                                     MSG_CACHE['F7361F810F'] = packet[10:]
-                                        
-
+                      
                             elif name == 'gasvalve':
                                 # Gas Value는 하나라서 강제 설정
                                 rid = 1
@@ -570,6 +586,24 @@ def ezville_loop():
                         if debug:
                             log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd, statcmd))
 
+#                    elif device == 'Fan':
+#                        if topics[2] == 'power':
+#                            sendcmd = DEVICE_LISTS[device][idx].get('command' + value)
+#                            recvcmd = DEVICE_LISTS[device][idx].get('state' + value) if value == 'ON' else [
+#                                DEVICE_LISTS[device][idx].get('state' + value)]
+#                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+#                            if debug:
+#                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+#                        elif topics[2] == 'speed':
+#                            speed_list = ['LOW', 'MEDIUM', 'HIGH']
+#                            if value in speed_list:
+#                                index = speed_list.index(value)
+#                                sendcmd = DEVICE_LISTS[device][idx]['CHANGE'][index]
+#                                recvcmd = [DEVICE_LISTS[device][idx]['stateON'][index]]
+#                                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+#                                if debug:
+#                                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+
                 elif device == 'gasvalve':
                     # 가스 밸브는 ON 제어를 받지 않음
                     if value == 'OFF':
@@ -680,9 +714,9 @@ def ezville_loop():
                                                 
     # Telnet 접속하여 EW11 리셋        
     async def reset_EW11(): 
-        ew11_id = 'admin'
-        ew11_password = 'admin'
-        ew11_server = '192.168.0.18'
+        ew11_id = config['ew11_id']
+        ew11_password = config['ew11_password']
+        ew11_server = config['ew11_server']
 
         ew11 = telnetlib.Telnet(ew11_server)
 
@@ -822,11 +856,11 @@ def ezville_loop():
         
     # MQTT 통신
     mqtt_client = mqtt.Client('mqtt-ezville')
-    mqtt_client.username_pw_set('loveangelsa', 'Skek1352!')
+    mqtt_client.username_pw_set(config['mqtt_id'], config['mqtt_password'])
     mqtt_client.on_connect = on_connect
     mqtt_client.on_disconnect = on_disconnect
     mqtt_client.on_message = on_message
-    mqtt_client.connect_async('192.168.0.137')
+    mqtt_client.connect_async(config['mqtt_server'])
     
     # asyncio loop 획득 및 EW11 오류시 재시작 task 등록
     loop = asyncio.get_event_loop()
