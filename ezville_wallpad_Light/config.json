@@ -67,7 +67,7 @@
 			"max_retry": 20,
 			"early_response": 2,
 			"dump_time": 0,
-			"intercom_header": "A45A"
+            "intercom_header": "A45A"
 		},
 		"log": {
 			"to_file": true,
@@ -108,50 +108,30 @@
 		"wallpad_mode": ["on", "off"],
 		"intercom_mode": ["on", "off"],
 		"serial": {
-			"port": "str",
+			"port":  "str",
 			"baudrate": "int",
-			"bytesize": {
-				"type": "integer",
-				"minimum": 5,
-				"maximum": 8
-			},
-			"parity": ["E", "O", "N", "M", "S"],
-			"stopbits": {
-				"type": "integer",
-				"minimum": 0,
-				"maximum": 3
-			}
+			"bytesize": "int(5,8)",
+			"parity": "list(E|O|N|M|S)",
+			"stopbits": "int(0,3)"
 		},
 		"socket": {
-			"address": ["str", "null"],
-			"port": ["int", "null"]
+			"address": "str?",
+			"port": "int?"
 		},
 		"mqtt": {
 			"server": "str",
-			"port": {
-				"type": "integer",
-				"minimum": 0,
-				"maximum": 65535
-			},
+			"port": "int(0,65535)",
 			"need_login": "bool",
-			"user": ["str", "null"],
-			"passwd": ["str", "null"],
+			"user": "str?",
+			"passwd": "str?",
 			"discovery": "bool",
 			"prefix": "str"
 		},
 		"rs485": {
-			"max_retry": {
-				"type": "integer",
-				"minimum": 0,
-				"maximum": 100
-			},
-			"early_response": {
-				"type": "integer",
-				"minimum": 0,
-				"maximum": 2
-			},
+			"max_retry": "int(0,100)",
+			"early_response": "int(0,2)",
 			"dump_time": "int",
-			"intercom_header": ["str", "null"]
+            "intercom_header": "str?"
 		},
 		"log": {
 			"to_file": "bool",
