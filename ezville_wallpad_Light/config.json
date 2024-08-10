@@ -3,7 +3,7 @@
 	"slug": "ezville_wallpad",
 	"name": "EzVille RS485 Addon_Light",
 	"description": "조명 제어 이지빌용 수정된 애드온입니다.",
-	"url": "https://github.com/loveangelsa/addons",
+	"url": "https://github.com/loveangelsa/addon_Light",
 	"startup": "application",
 	"boot": "auto",
 	"arch": [ "armhf", "armv7", "aarch64", "amd64", "i386" ],
@@ -69,13 +69,14 @@
 			"max_retry": 20,
 			"early_response": 2,
 			"dump_time": 0,
-            "intercom_header": "A45A"
+            	"intercom_header": "A45A"
 		},
 		"log": {
 			"to_file": true,
 			"filename": "/share/ezville_wallpad.log"
 		}
 	},
+	
 	"schema": {
 		"DEBUG_LOG": "bool",
 		"MQTT_LOG": "bool",
@@ -141,5 +142,5 @@
 			"to_file": "bool",
 			"filename": "str"
 		}
-	}
+	},
 }
