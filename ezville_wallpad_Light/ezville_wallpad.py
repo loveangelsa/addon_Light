@@ -7,7 +7,7 @@
 import socket
 import threading
 import serial
-import paho.mqtt.client as paho_mqt
+import paho.mqtt.client as paho_mqtt
 import paho.mqtt.client as mqtt
 import json
 
@@ -163,7 +163,7 @@ serial_ack = {}
 
 last_query = int(0).to_bytes(2, "big")
 last_topic_list = {}
-
+from paho.mqtt.enums import CallbackAPIVersion
 mqtt = paho_mqtt.Client(paho_mqtt.CallbackAPIVersion.VERSION2)
 mqtt_connected = False
 
