@@ -13,7 +13,7 @@
 
 	"options": {
 		"serial_mode": "socket",
-		"entrance_mode": "off",
+		"entrance_mode": "new",
 		"wallpad_mode": "on",
 		"intercom_mode": "off",
 		"serial": {
