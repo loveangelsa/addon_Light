@@ -36,9 +36,8 @@ RS485_DEVICE = {
         "state":    { "id": 0x36, "cmd": 0x81, },
         "last":     { },
 
-        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0xC6, },
+        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x00, },
         "target":   { "id": 0x36, "cmd": 0x44, "ack": 0xC4, },
-        "power":   { "id": 0x36, "cmd": 0x43, "ack": 0xC3, },
     },
     "batch": {  # 안보임
         "state": {"id": 0x33, "cmd": 0x81},
@@ -72,10 +71,10 @@ DISCOVERY_PAYLOAD = {
             "cmd_t": "~/power/command",
         }
     ],
-    "thermostat": [ {
+    "ostat": [ {
         "_intg": "climate",
-        "~": "{prefix}/thermostat/{grp}_{id}",
-        "name": "{prefix}_thermostat_{grp}_{id}",
+        "~": "{prefix}/ostat/{grp}_{id}",
+        "name": "{prefix}_ostat_{grp}_{id}",
         "mode_stat_t": "~/power/state",
         "temp_stat_t": "~/target/state",
         "temp_cmd_t": "~/target/command",
@@ -414,11 +413,7 @@ def mqtt_device(topics, payload):
         packet[6] = payload
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
-    elif device == "thermostat":
-        if payload == "heat":
-            payload = 0x01
-        elif payload == "off":
-            payload = 0x00
+    elif device == "ostat":
         length = 8
         packet = bytearray(length)
         packet[0] = 0xF7
@@ -588,7 +583,7 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
-    elif device == "thermostat":
+    elif device == "ostat":
         # KTDO: EzVille에 맞게 수정
         grp_id = int(packet[2] >> 4)
         room_count = int((int(packet[4]) - 5) / 2)
@@ -675,7 +670,7 @@ def serial_receive_state(device, packet):
                 logger.debug("publish to HA:   %s = %s (%s)", topic, value, packet.hex())
                 mqtt.publish(topic, value)
                 last_topic_list[topic] = value
-    elif device == "thermostat":
+    elif device == "ostat":
         grp_id = int(packet[2] >> 4)
         room_count = int((int(packet[4]) - 5) / 2)
         
