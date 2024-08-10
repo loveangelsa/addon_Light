@@ -8,6 +8,7 @@ import socket
 import threading
 import serial
 import paho.mqtt.client as paho_mqtt
+import paho.mqtt.client as mqtt
 import json
 
 import sys
@@ -714,8 +715,9 @@ def serial_new_device(device, packet, idn=None):
             payload = payloads.copy()
             if "{prefix}" in payload["~"] and "{idn}" in payload["~"]:
                 payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
-            payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
-        
+            payload["name"] = payload["name"].format(prefix=prefix, idn=idn) if "{prefix}" in payload["name"] and "{idn}" in payload["name"] else payload["name"]
+
+
             # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
             # KTDO: Ezville에 에너지 확인 쿼리 없음
             if device == "energy":
