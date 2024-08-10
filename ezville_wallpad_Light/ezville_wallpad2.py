@@ -680,8 +680,8 @@ def ezville_loop():
                                                 
     # Telnet 접속하여 EW11 리셋        
     async def reset_EW11(): 
-        ew11_id = "admin"
-        ew11_password = "admin"
+        ew11_id = 'admin'
+        ew11_password = 'admin'
         ew11_server = 192.168.0.18
 
         ew11 = telnetlib.Telnet(ew11_server)
@@ -822,11 +822,11 @@ def ezville_loop():
         
     # MQTT 통신
     mqtt_client = mqtt.Client('mqtt-ezville')
-    mqtt_client.username_pw_set("loveangelsa", "Skek1352!")
+    mqtt_client.username_pw_set('loveangelsa', 'Skek1352!')
     mqtt_client.on_connect = on_connect
     mqtt_client.on_disconnect = on_disconnect
     mqtt_client.on_message = on_message
-    mqtt_client.connect_async("192.168.0.137")
+    mqtt_client.connect_async('192.168.0.137')
     
     # asyncio loop 획득 및 EW11 오류시 재시작 task 등록
     loop = asyncio.get_event_loop()
