@@ -1,5 +1,5 @@
 {
-	"version": "0.0.20240217",
+	"version": "1.0 수정중",
 	"slug": "ezville_wallpad",
 	"name": "EzVille RS485 Addon_Light",
 	"description": "조명 제어 이지빌용 수정된 애드온입니다.",
@@ -24,7 +24,7 @@
 			"stopbits": 1
 		},
 		"socket": {
-			"address": "192.168.0.51",
+			"address": "192.168.0.18",
 			"port": 8899
 		},
 		"mqtt": {
