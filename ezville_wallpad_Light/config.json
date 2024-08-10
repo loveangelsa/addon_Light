@@ -12,6 +12,10 @@
 	"map": [ "share:rw" ],
 
 	"options": {
+		"serial_mode": "socket",
+		"entrance_mode": "off",
+		"wallpad_mode": "on",
+		"intercom_mode": "off",
 		"serial": {
 			"port":  "/dev/ttyUSB0",
 			"baudrate": 9600,
@@ -45,6 +49,10 @@
 	},
 	
 	"schema": {
+		"serial_mode": "list(serial|socket|sockets)",
+		"entrance_mode": "list(full|new|minimal|off)",
+		"wallpad_mode": "list(on|off)",
+		"intercom_mode": "list(on|off)",
 		"serial": {
 			"port":  "str",
 			"baudrate": "int",
