@@ -1581,7 +1581,7 @@ def ezville_loop():
     async def reset_EW11(): 
         ew11_id = 'admin'
         ew11_password = 'admin'
-        ew11_server = 192.168.0.18
+        ew11_server = '192.168.0.18'
 
         ew11 = telnetlib.Telnet(ew11_server)
 
