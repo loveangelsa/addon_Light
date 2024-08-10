@@ -712,11 +712,10 @@ def serial_new_device(device, packet, idn=None):
     elif device in DISCOVERY_PAYLOAD:
         for payloads in DISCOVERY_PAYLOAD[device]:
             payload = payloads.copy()
-            payload["~"] = payload["~"].format(prefix=prefix, idn=idn) 
-                if "{prefix}" in payload["~"] and "{idn}" in payload["~"] 
-                else payload["~"]
+            if "{prefix}" in payload["~"] and "{idn}" in payload["~"]:
+                payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
             payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
-
+        
             # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
             # KTDO: Ezville에 에너지 확인 쿼리 없음
             if device == "energy":
