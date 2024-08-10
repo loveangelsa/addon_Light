@@ -8,6 +8,7 @@ import socket
 import threading
 import serial
 import paho.mqtt.client as paho_mqt
+import paho.mqtt.client as mqtt
 import json
 
 import sys
