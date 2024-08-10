@@ -45,8 +45,7 @@
 		"log": {
 			"to_file": true,
 			"filename": "/share/ezville_wallpad.log"
-		},
-
+		}
 	},
 	
 	"schema": {
@@ -83,7 +82,7 @@
 		"log": {
 			"to_file": "bool",
 			"filename": "str"
-		},
+		}
 
 	}
 }
