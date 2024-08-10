@@ -413,7 +413,7 @@ def mqtt_discovery(payload):
     payload["uniq_id"] = payload["name"]
 
     # discovery에 등록
-    topic = "homeassistant/{intg}/ezville_wallpad/{payload['name']}/config"
+    topic = f"homeassistant/{intg}/ezville_wallpad/{payload['name']}/config"
     logger.info("Add new device: %s", topic)
     mqtt.publish(topic, json.dumps(payload))
 
@@ -552,7 +552,7 @@ def mqtt_on_connect(mqtt, userdata, flags, rc, properties):
 
     prefix = Options["mqtt"]["prefix"]
     if Options["wallpad_mode"] != "off":
-        topic = "{prefix}/+/+/+/command"
+        topic = f"{prefix}/+/+/+/command"
         logger.info("subscribe %s", topic)
         mqtt.subscribe(topic, 0)
 
@@ -703,9 +703,9 @@ def serial_new_device(device, packet, idn=None):
         plug_count = int(packet[4] / 3)
         for plug_id in range(1, plug_count + 1):
             payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, idn="{grp_id}_{plug_id}")
+            payload["~"] = payload["~"].format(prefix=prefix, idn=f"{grp_id}_{plug_id}")
             payload["name"] = payload["name"].format(
-                prefix=prefix, idn="{grp_id}_{plug_id}"
+                prefix=prefix, idn=f"{grp_id}_{plug_id}"
             )
 
             mqtt_discovery(payload)
@@ -763,7 +763,7 @@ def serial_receive_state(device, packet):
         light_count = int(packet[4]) - 1
 
         for light_id in range(1, light_count + 1):
-            topic = "{prefix}/{device}/{grp_id}_{rm_id}_{light_id}/power/state"
+            topic = f"{prefix}/{device}/{grp_id}_{rm_id}_{light_id}/power/state"
             if packet[5 + light_id] & 1:
                 value = "ON"
             else:
@@ -795,7 +795,7 @@ def serial_receive_state(device, packet):
                     packet[9 + thermostat_id * 2],
                 ],
             ):
-                topic = "{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
+                topic = f"{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
                 if last_topic_list.get(topic) != value:
                     logger.debug(
                         "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
@@ -810,10 +810,10 @@ def serial_receive_state(device, packet):
                 ["power", "current"],
                 [
                     "ON" if packet[plug_id * 3 + 3] & 0x10 else "OFF",
-                    "{format(packet[plug_id * 3 + 4], "x")}.{format(packet[plug_id * 3 + 5], "x")}"
+                    f"{format(packet[plug_id * 3 + 4], "x")}.{format(packet[plug_id * 3 + 5], "x")}"
                 ],
             ):
-                topic = "{prefix}/{device}/{grp_id}_{plug_id}/{sub_topic}/state"
+                topic = f"{prefix}/{device}/{grp_id}_{plug_id}/{sub_topic}/state"
                 if last_topic_list.get(topic) != value:
                     logger.debug(
                         "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
