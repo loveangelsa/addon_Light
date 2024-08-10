@@ -810,7 +810,7 @@ def serial_receive_state(device, packet):
                 ["power", "current"],
                 [
                     "ON" if packet[plug_id * 3 + 3] & 0x10 else "OFF",
-                    "{format(packet[plug_id * 3 + 4], "x")}.{format(packet[plug_id * 3 + 5], "x")}",
+                    "{format(packet[plug_id * 3 + 4], "x")}.{format(packet[plug_id * 3 + 5], "x")}"
                 ],
             ):
                 topic = "{prefix}/{device}/{grp_id}_{plug_id}/{sub_topic}/state"
