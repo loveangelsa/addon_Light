@@ -149,16 +149,16 @@ EW11_SEND_TOPIC = EW11_TOPIC + '/send'
 def ezville_loop(config):
     
     # Log 생성 Flag
-    debug = config['DEBUG_LOG']
-    mqtt_log = config['MQTT_LOG']
-    ew11_log = config['EW11_LOG']
+    debug = true
+    mqtt_log = true
+    ew11_log = true
     
     # 통신 모드 설정: mixed, socket, mqtt
-    comm_mode = config['mode']
+    comm_mode = socket
     
     # Socket 정보
-    SOC_ADDRESS = config['ew11_server']
-    SOC_PORT = config['ew11_port']
+    SOC_ADDRESS = 192.168.0.137
+    SOC_PORT = 1883
     
     # EW11 혹은 HA 전달 메시지 저장소
     MSG_QUEUE = Queue()
@@ -173,7 +173,7 @@ def ezville_loop(config):
     MSG_CACHE = {}
     
     # MQTT Discovery Que
-    DISCOVERY_DELAY = config['discovery_delay']
+    DISCOVERY_DELAY = 0.2
     DISCOVERY_LIST = []
     
     # EW11 전달 패킷 중 처리 후 남은 짜투리 패킷 저장
@@ -181,27 +181,27 @@ def ezville_loop(config):
     
     # 강제 주기적 업데이트 설정 - 매 force_update_period 마다 force_update_duration초간 HA 업데이트 실시
     FORCE_UPDATE = False
-    FORCE_MODE = config['force_update_mode']
-    FORCE_PERIOD = config['force_update_period']
-    FORCE_DURATION = config['force_update_duration']
+    FORCE_MODE = true
+    FORCE_PERIOD = 600
+    FORCE_DURATION = 2
     
     # Command를 EW11로 보내는 방식 설정 (동시 명령 횟수, 명령 간격 및 재시도 횟수)
-    CMD_INTERVAL = config['command_interval']
-    CMD_RETRY_COUNT = config['command_retry_count']
-    FIRST_WAITTIME = config['first_waittime']
-    RANDOM_BACKOFF = config['random_backoff']
+    CMD_INTERVAL = 0.5
+    CMD_RETRY_COUNT = 30
+    FIRST_WAITTIME = 0.5
+    RANDOM_BACKOFF = true
     
     # State 업데이트 루프 / Command 실행 루프 / Socket 통신으로 패킷 받아오는 루프 / Restart 필요한지 체크하는 루프의 Delay Time 설정
-    STATE_LOOP_DELAY = config['state_loop_delay']
-    COMMAND_LOOP_DELAY = config['command_loop_delay']
-    SERIAL_RECV_DELAY = config['serial_recv_delay']
-    RESTART_CHECK_DELAY = config['restart_check_delay']
+    STATE_LOOP_DELAY = 0.2
+    COMMAND_LOOP_DELAY = 0.2
+    SERIAL_RECV_DELAY = 30
+    RESTART_CHECK_DELAY = 2.0
     
     # EW11에 설정된 BUFFER SIZE
-    EW11_BUFFER_SIZE = config['ew11_buffer_size']
+    EW11_BUFFER_SIZE = 128
     
     # EW11 동작상태 확인용 메시지 수신 시간 체크 주기 및 체크용 시간 변수
-    EW11_TIMEOUT = config['ew11_timeout']
+    EW11_TIMEOUT = 3600
     last_received_time = time.time()
     
     # EW11 재시작 확인용 Flag
@@ -214,8 +214,8 @@ def ezville_loop(config):
     ADDON_STARTED = False
  
     # Reboot 이후 안정적인 동작을 위한 제어 Flag
-    REBOOT_CONTROL = config['reboot_control']
-    REBOOT_DELAY = config['reboot_delay']
+    REBOOT_CONTROL = false
+    REBOOT_DELAY = 300
 
     # 시작 시 인위적인 Delay 필요시 사용
     startup_delay = 0
@@ -680,9 +680,9 @@ def ezville_loop(config):
                                                 
     # Telnet 접속하여 EW11 리셋        
     async def reset_EW11(): 
-        ew11_id = config['ew11_id']
-        ew11_password = config['ew11_password']
-        ew11_server = config['ew11_server']
+        ew11_id = "admin"
+        ew11_password = "admin"
+        ew11_server = 192.168.0.18
 
         ew11 = telnetlib.Telnet(ew11_server)
 
@@ -822,11 +822,11 @@ def ezville_loop(config):
         
     # MQTT 통신
     mqtt_client = mqtt.Client('mqtt-ezville')
-    mqtt_client.username_pw_set(config['mqtt_id'], config['mqtt_password'])
+    mqtt_client.username_pw_set("loveangelsa", "Skek1352!")
     mqtt_client.on_connect = on_connect
     mqtt_client.on_disconnect = on_disconnect
     mqtt_client.on_message = on_message
-    mqtt_client.connect_async(config['mqtt_server'])
+    mqtt_client.connect_async("192.168.0.137")
     
     # asyncio loop 획득 및 EW11 오류시 재시작 task 등록
     loop = asyncio.get_event_loop()
