@@ -58,21 +58,6 @@ DISCOVERY_PAYLOAD = {
         'min_temp': '5',
         'max_temp': '40'
     } ],
-
-    {
-        '_intg': 'binary_sensor',
-        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
-        'name': 'ezville_plug-automode_{:0>2d}_{:0>2d}',
-        'stat_t': '~/auto/state',
-        'icon': 'mdi:leaf'
-    },
-    {
-        '_intg': 'sensor',
-        '~': 'ezville/plug_{:0>2d}_{:0>2d}',
-        'name': 'ezville_plug_{:0>2d}_{:0>2d}_powermeter',
-        'stat_t': '~/current/state',
-        'unit_of_meas': 'W'
-    } ],
     'gasvalve': [ {
         '_intg': 'switch',
         '~': 'ezville/gasvalve_{:0>2d}_{:0>2d}',
