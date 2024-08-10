@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#ADDON_FILE1=ezville_wallpad.py
-#ADDON_FILE2=ezville_wallpad2.py
-ADDON_FILE3=ezville_wallpad3.py
+ADDON_FILE1=ezville_wallpad.py
+ADDON_FILE2=ezville_wallpad2.py
+#ADDON_FILE3=ezville_wallpad3.py
 OPTION_FILE=options_standalone.json
 GENERATE_OPTION_SCRIPT=generate_options_standalone.py
 
@@ -30,7 +30,7 @@ if [ ! -f $OPTION_FILE ]; then
 	exit 1
 fi
 
-#python3 $ADDON_FILE1 $OPTION_FILE
-#python3 $ADDON_FILE2 $OPTION_FILE
-python3 $ADDON_FILE3 $OPTION_FILE
+python3 $ADDON_FILE1 $OPTION_FILE
+python3 $ADDON_FILE2 $OPTION_FILE
+#python3 $ADDON_FILE3 $OPTION_FILE
 
