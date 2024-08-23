@@ -99,7 +99,7 @@ DISCOVERY_PAYLOAD = {
             "stat_t": "~/current/state",
             "unit_of_meas": "W",
         },
-    ]
+    ],
     "gasvalve": [
         {
             "_intg": "switch",
