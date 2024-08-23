@@ -31,7 +31,7 @@ RS485_DEVICE = {
 # MQTT Discovery를 위한 Preset 정보
 DISCOVERY_DEVICE = {
     "ids": [
-        "ezville_wallpad_Temp",
+        "ezville_wallpad_batch,gas",
     ],
     "name": "ezville_wallpad_batch,gas",
     "mf": "EzVille_batch,gas",
