@@ -1,13 +1,11 @@
 {
   "name": "MQTT 기반 Simple EzVille_GAS,BATCH",
   "version": "1.0",
-  "slug": "simple_mqtt_ezville_gas,batch",
-  "url": "https://github.com/loveangelsa/addon_Light/",
+  "slug": "mqtt_ezville_gas,batch",
+  "url": "https://github.com/loveangelsa/addon_Light",
   "description": "MQTT 통신 EzVille 월패드 컨트롤러_gas,batch",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
-  "map": [
-    "share:rw"
-  ],
+  "map": ["share:rw"],
   "startup": "application",
   "boot": "auto",
   "options": {
