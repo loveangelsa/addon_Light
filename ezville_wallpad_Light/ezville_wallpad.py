@@ -945,30 +945,29 @@ def init_connect(conn):
 
 
 if __name__ == "__main__":
+    global conn
+
     # configuration 로드 및 로거 설정
     init_logger()
     init_option(sys.argv)
     init_logger_file()
-    start_mqtt_loop()
 
-    if Options["serial_mode"] == "sockets":
-        for _socket in Options["sockets"]:
-            conn = EzVilleSocket(_socket["address"], _socket["port"], _socket["capabilities"])
-            init_connect(conn=conn)
-            thread = threading.Thread(target=daemon, args=(conn,))
-            thread.daemon = True
-            thread.start()
-        while True:
-            time.sleep(10**8)
-    elif Options["serial_mode"] == "socket":
+# KTDO: Virtual Device는 Skip
+#    init_virtual_device()
+
+    if Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
-        conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
+        conn = EzVilleSocket()
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
-    if Options["serial_mode"] != "sockets":
-        init_connect(conn=conn)
-        try:
-            daemon(conn=conn)
-        except:
-            logger.exception("addon finished!")
+
+    dump_loop()
+
+    start_mqtt_loop()
+
+    try:
+        # 무한 루프
+        serial_loop()
+    except:
+        logger.exception("addon finished!")
