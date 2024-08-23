@@ -33,10 +33,10 @@ DISCOVERY_DEVICE = {
     "ids": [
         "ezville_wallpad_Temp",
     ],
-    "name": "ezville_wallpad_Temp",
-    "mf": "EzVille_Temp",
-    "mdl": "EzVille Wallpad_Temp",
-    "sw": "loveangelsa/addons/simple_mqtt_ezville_control",
+    "name": "ezville_wallpad_batch,gas",
+    "mf": "EzVille_batch,gas",
+    "mdl": "EzVille Wallpad_batch,gas",
+    "sw": "loveangelsa/addon_Light/simple_mqtt_ezville_control",
 }
 
 # MQTT Discovery를 위한 Payload 정보
