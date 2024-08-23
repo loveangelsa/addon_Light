@@ -1,9 +1,9 @@
 {
-  "name": "MQTT 기반 Simple EzVille Wallpad Control_GAS,BATCH",
-  "version": "1",
-  "slug": "simple_mqtt_ezville_control_gas,batch",
+  "name": "MQTT 기반 Simple EzVille_GAS,BATCH",
+  "version": "1.0",
+  "slug": "simple_mqtt_ezville_gas,batch",
   "url": "https://github.com/loveangelsa/addon_Light",
-  "description": "MQTT 통신을 활용한 간단화된 EzVille 월패드 컨트롤러_gas,batch",
+  "description": "MQTT 통신 EzVille 월패드 컨트롤러_gas,batch",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
   "map": [
     "share:rw"
