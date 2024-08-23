@@ -662,6 +662,32 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
+    elif device == "gasvalve":
+        # KTDO: EzVille에 맞게 수정
+        grp_id = int(packet[2] >> 4)
+        plug_count = int(packet[4] / 3)
+        for plug_id in range(1, plug_count + 1):
+            payload = DISCOVERY_PAYLOAD[device][0].copy()
+            payload["~"] = payload["~"].format(prefix=prefix, idn=f"{grp_id}_{plug_id}")
+            payload["name"] = payload["name"].format(
+                prefix=prefix, idn=f"{grp_id}_{plug_id}"
+            )
+
+            mqtt_discovery(payload)
+
+    elif device == "batch":
+        # KTDO: EzVille에 맞게 수정
+        grp_id = int(packet[2] >> 4)
+        plug_count = int(packet[4] / 3)
+        for plug_id in range(1, plug_count + 1):
+            payload = DISCOVERY_PAYLOAD[device][0].copy()
+            payload["~"] = payload["~"].format(prefix=prefix, idn=f"{grp_id}_{plug_id}")
+            payload["name"] = payload["name"].format(
+                prefix=prefix, idn=f"{grp_id}_{plug_id}"
+            )
+
+            mqtt_discovery(payload)
+
     elif device in DISCOVERY_PAYLOAD:
         for payloads in DISCOVERY_PAYLOAD[device]:
             payload = payloads.copy()
@@ -850,7 +876,6 @@ def serial_send_command(conn):
         logger.info("send to device:  %s", cmd.hex())
         serial_ack[ack] = cmd
 
-
 # KTDO: 수정 완료
 def daemon(conn):
     logger.info("start loop ...")
@@ -945,29 +970,30 @@ def init_connect(conn):
 
 
 if __name__ == "__main__":
-    global conn
-
     # configuration 로드 및 로거 설정
     init_logger()
     init_option(sys.argv)
     init_logger_file()
+    start_mqtt_loop()
 
-# KTDO: Virtual Device는 Skip
-#    init_virtual_device()
-
-    if Options["serial_mode"] == "socket":
+    if Options["serial_mode"] == "sockets":
+        for _socket in Options["sockets"]:
+            conn = EzVilleSocket(_socket["address"], _socket["port"], _socket["capabilities"])
+            init_connect(conn=conn)
+            thread = threading.Thread(target=daemon, args=(conn,))
+            thread.daemon = True
+            thread.start()
+        while True:
+            time.sleep(10**8)
+    elif Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
-        conn = EzVilleSocket()
+        conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
-
-    dump_loop()
-
-    start_mqtt_loop()
-
-    try:
-        # 무한 루프
-        serial_loop()
-    except:
-        logger.exception("addon finished!")
+    if Options["serial_mode"] != "sockets":
+        init_connect(conn=conn)
+        try:
+            daemon(conn=conn)
+        except:
+            logger.exception("addon finished!")
