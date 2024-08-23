@@ -32,19 +32,10 @@ RS485_DEVICE = {
             "ack": 0xC1,
         },
     },
-
-    "batch": {
-        "state": {"id": 0x33, "cmd": 0x81},
-        "press": {"id": 0x33, "cmd": 0x41, "ack": 0xC1},
-    },
     "plug": {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
     },
-    "gasvalve": {
-        "state": {"id": 0x12, "cmd": 0x81},
-        "power": {"id": 0x12, "cmd": 0x41, "ack": 0xC1} # 잠그기만 가능
-    }
 }
 
 
@@ -69,20 +60,6 @@ DISCOVERY_PAYLOAD = {
             "cmd_t": "~/power/command",
         }
     ],
-    "thermostat": [ {
-        "_intg": "climate",
-        "~": "{prefix}/thermostat/{grp}_{id}",
-        "name": "{prefix}_thermostat_{grp}_{id}",
-        "mode_stat_t": "~/power/state",
-        "temp_stat_t": "~/target/state",
-        "temp_cmd_t": "~/target/command",
-        "curr_temp_t": "~/current/state",
-        "away_stat_t": "~/away/state",
-        "away_cmd_t": "~/away/command",
-        "modes": [ "off", "heat" ],
-        "min_temp": 5,
-        "max_temp": 40,
-    } ],
     "plug": [
         {
             "_intg": "switch",
@@ -98,38 +75,6 @@ DISCOVERY_PAYLOAD = {
             "name": "{prefix}_plug_{idn}_power_usage",
             "stat_t": "~/current/state",
             "unit_of_meas": "W",
-        },
-    ],
-    "gasvalve": [
-        {
-            "_intg": "switch",
-            "~": "{prefix}/gasvalve/{idn}",
-            "name": "{prefix}_gasvalve_{idn}",
-            "stat_t": "~/power/state",
-            "icon": "mdi:valve",
-        }
-    ],
-    "batch": [
-        {
-            "_intg": "button",
-            "~": "ezville/batch_{:0>2d}_{:0>2d}",
-            "name": "ezville_batch-elevator-down_{:0>2d}_{:0>2d}",
-            "cmd_t": "~/elevator-down/command",
-            "icon": "mdi:elevator-down",
-        },
-        {
-            "_intg": "binary_sensor",
-            "~": "ezville/batch_{:0>2d}_{:0>2d}",
-            "name": "ezville_batch-groupcontrol_{:0>2d}_{:0>2d}",
-            "stat_t": "~/group/state",
-            "icon": "mdi:lightbulb-group",
-        },
-        {
-            "_intg": "binary_sensor",
-            "~": "ezville/batch_{:0>2d}_{:0>2d}",
-            "name": "ezville_batch-outing_{:0>2d}_{:0>2d}",
-            "stat_t": "~/outing/state",
-            "icon": "mdi:home-circle",
         },
     ],
 }
@@ -444,42 +389,8 @@ def mqtt_device(topics, payload):
         packet[6] = payload
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
-    elif device == "thermostat":
-        if payload == "heat":
-            payload = 0x01
-        elif payload == "off":
-            payload = 0x00
-        length = 8
-        packet = bytearray(length)
-        packet[0] = 0xF7
-        packet[1] = cmd["id"]
-        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
-        packet[3] = cmd["cmd"]
-        packet[4] = 0x01
-        packet[5] = int(float(payload))
-        packet[6], packet[7] = serial_generate_checksum(packet)
-    # TODO : gasvalve, batch, plug
+        
     elif device == "plug":
-        length = 8
-        packet = bytearray(length)
-        packet[0] = 0xF7
-        packet[1] = cmd["id"]
-        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
-        packet[3] = cmd["cmd"]
-        packet[4] = 0x01
-        packet[5] = 0x11 if payload == "ON" else 0x10
-        packet[6], packet[7] = serial_generate_checksum(packet)
-    elif device == "gasvalve":
-        length = 8
-        packet = bytearray(length)
-        packet[0] = 0xF7
-        packet[1] = cmd["id"]
-        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
-        packet[3] = cmd["cmd"]
-        packet[4] = 0x01
-        packet[5] = 0x11 if payload == "ON" else 0x10
-        packet[6], packet[7] = serial_generate_checksum(packet)
-    elif device == "batch":
         length = 8
         packet = bytearray(length)
         packet[0] = 0xF7
@@ -637,18 +548,6 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
-    elif device == "thermostat":
-        # KTDO: EzVille에 맞게 수정
-        grp_id = int(packet[2] >> 4)
-        room_count = int((int(packet[4]) - 5) / 2)
-        
-        for room_id in range(1, room_count + 1):
-            payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, grp=grp_id, id=room_id)
-            payload["name"] = payload["name"].format(prefix=prefix, grp=grp_id, id=room_id)
-
-            mqtt_discovery(payload)
-
     elif device == "plug":
         # KTDO: EzVille에 맞게 수정
         grp_id = int(packet[2] >> 4)
@@ -659,54 +558,6 @@ def serial_new_device(device, packet, idn=None):
             payload["name"] = payload["name"].format(
                 prefix=prefix, idn=f"{grp_id}_{plug_id}"
             )
-
-            mqtt_discovery(payload)
-
-    elif device == "gasvalve":
-        # KTDO: EzVille에 맞게 수정
-        grp_id = int(packet[2] >> 4)
-        plug_count = int(packet[4] / 3)
-        for plug_id in range(1, plug_count + 1):
-            payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, idn=f"{grp_id}_{plug_id}")
-            payload["name"] = payload["name"].format(
-                prefix=prefix, idn=f"{grp_id}_{plug_id}"
-            )
-
-            mqtt_discovery(payload)
-
-    elif device == "batch":
-        # KTDO: EzVille에 맞게 수정
-        grp_id = int(packet[2] >> 4)
-        plug_count = int(packet[4] / 3)
-        for plug_id in range(1, plug_count + 1):
-            payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, idn=f"{grp_id}_{plug_id}")
-            payload["name"] = payload["name"].format(
-                prefix=prefix, idn=f"{grp_id}_{plug_id}"
-            )
-
-            mqtt_discovery(payload)
-
-    elif device in DISCOVERY_PAYLOAD:
-        for payloads in DISCOVERY_PAYLOAD[device]:
-            payload = payloads.copy()
-
-            payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
-            payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
-
-            # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
-            # KTDO: Ezville에 에너지 확인 쿼리 없음
-            if device == "energy":
-                payload["name"] = "{}_{}_consumption".format(
-                    prefix, ("power", "gas", "water")[idn]
-                )
-                payload["unit_of_meas"] = ("W", "m³/h", "m³/h")[idn]
-                payload["val_tpl"] = (
-                    "{{ value }}",
-                    "{{ value | float / 100 }}",
-                    "{{ value | float / 100 }}",
-                )[idn]
 
             mqtt_discovery(payload)
 
@@ -751,35 +602,6 @@ def serial_receive_state(device, packet):
                 mqtt.publish(topic, value)
                 last_topic_list[topic] = value
 
-    elif device == "thermostat":
-        grp_id = int(packet[2] >> 4)
-        room_count = int((int(packet[4]) - 5) / 2)
-
-        for thermostat_id in range(1, room_count + 1):
-            if ((packet[6] & 0x1F) >> (room_count - thermostat_id)) & 1:
-                value1 = "ON"
-            else:
-                value1 = "OFF"
-            if ((packet[7] & 0x1F) >> (room_count - thermostat_id)) & 1:
-                value2 = "ON"
-            else:
-                value2 = "OFF"
-            for sub_topic, value in zip(
-                ["mode", "away", "target", "current"],
-                [
-                    value1,
-                    value2,
-                    packet[8 + thermostat_id * 2],
-                    packet[9 + thermostat_id * 2],
-                ],
-            ):
-                topic = f"{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
-                if last_topic_list.get(topic) != value:
-                    logger.debug(
-                        "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
-                    )
-                    mqtt.publish(topic, value)
-                    last_topic_list[topic] = value
     elif device == "plug":
         grp_id = int(packet[2] >> 4)
         plug_count = int(packet[4] / 3)
