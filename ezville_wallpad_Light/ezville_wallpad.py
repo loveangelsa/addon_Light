@@ -32,28 +32,7 @@ RS485_DEVICE = {
             "ack": 0xC1,
         },
     },
-    "thermostat": {
-        "state": {
-            "id": 0x36,
-            "cmd": 0x81,
-        },
-        "last": {},
-        "away": {
-            "id": 0x36,
-            "cmd": 0x46,
-            "ack": 0xC6,
-        },
-        "target": {
-            "id": 0x36,
-            "cmd": 0x44,
-            "ack": 0xC4,
-        },
-        "power": {
-            "id": 0x36,
-            "cmd": 0x43,
-            "ack": 0xC3,
-        },
-    },
+
     "batch": {
         "state": {"id": 0x33, "cmd": 0x81},
         "press": {"id": 0x33, "cmd": 0x41, "ack": 0xC1},
@@ -121,6 +100,38 @@ DISCOVERY_PAYLOAD = {
             "unit_of_meas": "W",
         },
     ]
+    "gasvalve": [
+        {
+            "_intg": "switch",
+            "~": "{prefix}/gasvalve/{idn}",
+            "name": "{prefix}_gasvalve_{idn}",
+            "stat_t": "~/power/state",
+            "icon": "mdi:valve",
+        }
+    ],
+    "batch": [
+        {
+            "_intg": "button",
+            "~": "ezville/batch_{:0>2d}_{:0>2d}",
+            "name": "ezville_batch-elevator-down_{:0>2d}_{:0>2d}",
+            "cmd_t": "~/elevator-down/command",
+            "icon": "mdi:elevator-down",
+        },
+        {
+            "_intg": "binary_sensor",
+            "~": "ezville/batch_{:0>2d}_{:0>2d}",
+            "name": "ezville_batch-groupcontrol_{:0>2d}_{:0>2d}",
+            "stat_t": "~/group/state",
+            "icon": "mdi:lightbulb-group",
+        },
+        {
+            "_intg": "binary_sensor",
+            "~": "ezville/batch_{:0>2d}_{:0>2d}",
+            "name": "ezville_batch-outing_{:0>2d}_{:0>2d}",
+            "stat_t": "~/outing/state",
+            "icon": "mdi:home-circle",
+        },
+    ],
 }
 
 STATE_HEADER = {
@@ -449,6 +460,26 @@ def mqtt_device(topics, payload):
         packet[6], packet[7] = serial_generate_checksum(packet)
     # TODO : gasvalve, batch, plug
     elif device == "plug":
+        length = 8
+        packet = bytearray(length)
+        packet[0] = 0xF7
+        packet[1] = cmd["id"]
+        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
+        packet[3] = cmd["cmd"]
+        packet[4] = 0x01
+        packet[5] = 0x11 if payload == "ON" else 0x10
+        packet[6], packet[7] = serial_generate_checksum(packet)
+    elif device == "gasvalve":
+        length = 8
+        packet = bytearray(length)
+        packet[0] = 0xF7
+        packet[1] = cmd["id"]
+        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
+        packet[3] = cmd["cmd"]
+        packet[4] = 0x01
+        packet[5] = 0x11 if payload == "ON" else 0x10
+        packet[6], packet[7] = serial_generate_checksum(packet)
+    elif device == "batch":
         length = 8
         packet = bytearray(length)
         packet[0] = 0xF7
