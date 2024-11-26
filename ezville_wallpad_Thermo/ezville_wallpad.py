@@ -660,7 +660,7 @@ def serial_send_command(conn):
 
 
 # KTDO: 수정 완료
-def daemon(conn):
+def serial loop():
     logger.info("start loop ...")
     scan_count = 0
     send_aggressive = False
