@@ -40,7 +40,7 @@
 			"server": "192.168.0.36",
 			"port": 1883,
 			"need_login": true,
-			"user": loveangelsa,
+			"user": "loveangelsa",
 			"passwd": "",
 			"discovery": true,
 			"prefix": "ezville"
