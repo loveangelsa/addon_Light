@@ -23,7 +23,7 @@ RS485_DEVICE = {
         "query": {"id": 0x36, "cmd": 0x01, },
         "state": {"id": 0x36, "cmd": 0x81, },
         "last": {},
-        "away": {"id": 0x36, "cmd": 0x45, "ack": 0xC6, },
+        "away": {"id": 0x36, "cmd": 0x45, "ack": 0xC5, },
         "target": {"id": 0x36, "cmd": 0x44, "ack": 0xC4, },
         "power": {"id": 0x36, "cmd": 0x43, "ack": 0xC3, },
     },
@@ -47,9 +47,9 @@ DISCOVERY_PAYLOAD = {
             "name": "{prefix}_thermostat_{grp}_{id}",
             "mode_stat_t": "~/power/state",
             "mode_cmd_t": "~/power/command",
-            "temp_stat_t": "~/target/state",
-            "temp_cmd_t": "~/target/command",
-            "curr_temp_t": "~/current/state",
+            "temp_stat_t": "~/setTemp/state",
+            "temp_cmd_t": "~/setTemp/command",
+            "curr_temp_t": "~/curTemp/state",
             "away_stat_t": "~/away/state",
             "away_cmd_t": "~/away/command",
             "modes": ["off", "heat"],
@@ -569,7 +569,7 @@ def serial_receive_state(device, packet):
             else:
                 value2 = "OFF"
             for sub_topic, value in zip(
-                ["mode", "away", "target", "current"],
+                ["mode", "away", "setTemp", "curTemp"],
                 [
                     value1,
                     value2,
