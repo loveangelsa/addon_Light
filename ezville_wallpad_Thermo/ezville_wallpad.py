@@ -23,7 +23,7 @@ RS485_DEVICE = {
         "query": {"id": 0x36, "cmd": 0x01, },
         "state": {"id": 0x36, "cmd": 0x81, },
         "last": {},
-        "away": {"id": 0x36, "cmd": 0x45, "ack": 0xC5, },
+        "away": {"id": 0x36, "cmd": 0x45, "ack": 0x00, },
         "target": {"id": 0x36, "cmd": 0x44, "ack": 0xC4, },
         "power": {"id": 0x36, "cmd": 0x43, "ack": 0xC3, },
     },
@@ -47,9 +47,9 @@ DISCOVERY_PAYLOAD = {
             "name": "{prefix}_thermostat_{grp}_{id}",
             "mode_stat_t": "~/power/state",
             "mode_cmd_t": "~/power/command",
-            "temp_stat_t": "~/setTemp/state",
-            "temp_cmd_t": "~/setTemp/command",
-            "curr_temp_t": "~/curTemp/state",
+            "temp_stat_t": "~/target/state",
+            "temp_cmd_t": "~/target/command",
+            "curr_temp_t": "~/current/state",
             "away_stat_t": "~/away/state",
             "away_cmd_t": "~/away/command",
             "modes": ["off", "heat"],
@@ -64,12 +64,18 @@ STATE_HEADER = {
     for device, prop in RS485_DEVICE.items()
     if "state" in prop
 }
+
+QUERY_HEADER = {
+    prop["query"]["id"]: (device, prop["query"]["cmd"])
+    for device, prop in RS485_DEVICE.items()
+    if "query" in prop
+}
 # 제어 명령의 ACK header만 모음
 ACK_HEADER = {
     prop[cmd]["id"]: (device, prop[cmd]["ack"])
     for device, prop in RS485_DEVICE.items()
-    for cmd, code in prop.items()
-    if "ack" in code
+        for cmd, code in prop.items()
+            if "ack" in code
 }
 # KTDO: 제어 명령과 ACK의 Pair 저장
 
@@ -77,6 +83,8 @@ ACK_MAP = defaultdict(lambda: defaultdict(dict))
 for device, prop in RS485_DEVICE.items():
     for cmd, code in prop.items():
         if "ack" in code:
+            ACK_MAP[code["id"]] = {}
+            ACK_MAP[code["id"]][code["cmd"]] = {}
             ACK_MAP[code["id"]][code["cmd"]] = code["ack"]
 
 # KTDO: 아래 미사용으로 코멘트 처리
@@ -344,7 +352,11 @@ def mqtt_device(topics, payload):
         return
 
     # ON, OFF인 경우만 1, 0으로 변환, 복잡한 경우 (fan 등) 는 값으로 받자
-
+    if payload == "ON": payload = "1"
+    elif payload == "OFF": payload = "0"
+    elif payload == "heat": payload = "1"
+    elif payload == "off": payload = "0"
+        
     # 오류 체크 끝났으면 serial 메시지 생성
     cmd = RS485_DEVICE[device][cmd]
     packet = None
@@ -509,29 +521,6 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
-    elif device in DISCOVERY_PAYLOAD:
-        for payloads in DISCOVERY_PAYLOAD[device]:
-            payload = payloads.copy()
-
-            payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
-            payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
-
-            # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
-            # KTDO: Ezville에 에너지 확인 쿼리 없음
-            if device == "energy":
-                payload["name"] = "{}_{}_consumption".format(
-                    prefix, ("power", "gas", "water")[idn]
-                )
-                payload["unit_of_meas"] = ("W", "m³/h", "m³/h")[idn]
-                payload["val_tpl"] = (
-                    "{{ value }}",
-                    "{{ value | float / 100 }}",
-                    "{{ value | float / 100 }}",
-                )[idn]
-
-            mqtt_discovery(payload)
-
-
 # KTDO: 수정 완료
 def serial_receive_state(device, packet):
     form = RS485_DEVICE[device]["state"]
@@ -560,6 +549,11 @@ def serial_receive_state(device, packet):
         room_count = int((int(packet[4]) - 5) / 2)
 
         for thermostat_id in range(1, room_count + 1):
+            topic1 = "{}/{}/{}_{}/power/state".format(prefix, device, grp_id, id)
+            topic2 = "{}/{}/{}_{}/away/state".format(prefix, device, grp_id, id)
+            topic3 = "{}/{}/{}_{}/target/state".format(prefix, device, grp_id, id)
+            topic4 = "{}/{}/{}_{}/current/state".format(prefix, device, grp_id, id)
+            
             if ((packet[6] & 0x1F) >> (room_count - thermostat_id)) & 1:
                 value1 = "ON"
             else:
@@ -568,22 +562,25 @@ def serial_receive_state(device, packet):
                 value2 = "ON"
             else:
                 value2 = "OFF"
-            for sub_topic, value in zip(
-                ["mode", "away", "setTemp", "curTemp"],
-                [
-                    value1,
-                    value2,
-                    packet[8 + thermostat_id * 2],
-                    packet[9 + thermostat_id * 2],
-                ],
-            ):
-                topic = f"{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
-                if last_topic_list.get(topic) != value:
-                    logger.debug(
-                        "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
-                    )
-                    mqtt.publish(topic, value)
-                    last_topic_list[topic] = value
+            value3 = packet[8 + id * 2]
+            value4 = packet[9 + id * 2]
+            
+            if last_topic_list.get(topic1) != value1:
+                logger.info("publish to HA:   {} = {} ({})".format(topic1, value1, packet.hex()))
+                mqtt.publish(topic1, value1)
+                last_topic_list[topic1] = value1
+            if last_topic_list.get(topic2) != value2:
+                logger.info("publish to HA:   {} = {} ({})".format(topic2, value2, packet.hex()))
+                mqtt.publish(topic2, value2)
+                last_topic_list[topic2] = value2
+            if last_topic_list.get(topic3) != value3:
+                logger.info("publish to HA:   {} = {} ({})".format(topic3, value3, packet.hex()))
+                mqtt.publish(topic3, value3)
+                last_topic_list[topic3] = value3
+            if last_topic_list.get(topic4) != value4:
+                logger.info("publish to HA:   {} = {} ({})".format(topic4, value4, packet.hex()))
+                mqtt.publish(topic4, value4)
+                last_topic_list[topic4] = value4
 
 # KTDO: 수정 완료
 def serial_get_header(conn):
@@ -720,9 +717,40 @@ def daemon(conn):
                 serial_send_command(conn=conn)
                 conn.set_pending_recv()
 
+        # 전체 루프 수 카운트
+        # KTDO: 가스 밸브 쿼리로 확인
+        global HEADER_0_FIRST
+        # KTDO: 2번째 Header가 장치 Header임
+        if header_1 == HEADER_0_FIRST[0][0] and (header_3 == HEADER_0_FIRST[0][1] or header_3 == HEADER_0_FIRST[1][1]):
+            loop_count += 1
+
+            # 돌만큼 돌았으면 상황 판단
+            if loop_count == 30:
+                # discovery: 가끔 비트가 튈때 이상한 장치가 등록되는걸 막기 위해, 시간제한을 둠
+                if Options["mqtt"]["_discovery"]:
+                    logger.info("Add new device:  All done.")
+                    Options["mqtt"]["_discovery"] = False
+                else:
+                    logger.info("running stable...")
+
+                # 스캔이 없거나 적으면, 명령을 내릴 타이밍을 못잡는걸로 판단, 아무때나 닥치는대로 보내봐야한다.
+                if Options["serial_mode"] == "serial" and scan_count < 30:
+                    logger.warning("initiate aggressive send mode!", scan_count)
+                    send_aggressive = True
+
+            # HA 재시작한 경우
+            elif loop_count > 30 and Options["mqtt"]["_discovery"]:
+                loop_count = 1
+
+        # 루프 카운트 세는데 실패하면 다른 걸로 시도해봄
+        if loop_count == 0 and time.time() - start_time > 6:
+            print("check loop count fail: there are no F7 {:02X} ** {:02X} or F7 {:02X} ** {:02X}! try F7 {:02X} ** {:02X} or F7 {:02X} ** {:02X}...".format(HEADER_0_FIRST[0][0],HEADER_0_FIRST[0][1],HEADER_0_FIRST[1][0],HEADER_0_FIRST[1][1],header_0_first_candidate[-1][0][0],header_0_first_candidate[-1][0][1],header_0_first_candidate[-1][1][0],header_0_first_candidate[-1][1][1]))
+            HEADER_0_FIRST = header_0_first_candidate.pop()
+            start_time = time.time()
+            scan_count = 0
 
 # KTDO: 수정 완료
-def init_connect(conn):
+def dump_loop():
     dump_time = Options["rs485"]["dump_time"]
 
     if dump_time > 0:
@@ -756,30 +784,26 @@ def init_connect(conn):
 
 
 if __name__ == "__main__":
+    global conn
     # configuration 로드 및 로거 설정
     init_logger()
     init_option(sys.argv)
     init_logger_file()
-    start_mqtt_loop()
 
-    if Options["serial_mode"] == "sockets":
-        for _socket in Options["sockets"]:
-            conn = EzVilleSocket(_socket["address"], _socket["port"], _socket["capabilities"])
-            init_connect(conn=conn)
-            thread = threading.Thread(target=daemon, args=(conn,))
-            thread.daemon = True
-            thread.start()
-        while True:
-            time.sleep(10**8)
-    elif Options["serial_mode"] == "socket":
+
+    if Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
         conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
-    if Options["serial_mode"] != "sockets":
-        init_connect(conn=conn)
-        try:
-            daemon(conn=conn)
-        except:
-            logger.exception("addon finished!")
+
+    dump_loop()
+
+    start_mqtt_loop()
+
+    try:
+        # 무한 루프
+        serial_loop()
+    except:
+        logger.exception("addon finished!")
