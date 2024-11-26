@@ -666,7 +666,7 @@ def serial_loop():
     send_aggressive = False
 
     start_time = time.time()
-    while True:
+    while 1:
         # 로그 출력
         sys.stdout.flush()
 
@@ -777,7 +777,7 @@ def dump_loop():
         logs = []
         while time.time() - start_time < dump_time:
             try:
-                data = conn.recv(256)
+                data = conn.recv(128)
             except:
                 continue
 
