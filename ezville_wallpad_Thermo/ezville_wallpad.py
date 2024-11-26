@@ -28,7 +28,7 @@ RS485_DEVICE = {
         "last": {},
         "away": {
             "id": 0x36,
-            "cmd": 0x46,
+            "cmd": 0x45,
             "ack": 0xC6,
         },
         "target": {
