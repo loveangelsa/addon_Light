@@ -36,16 +36,7 @@ RS485_DEVICE = {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
     },
-    # 각방 난방 제어
-    "thermostat": {
-        "query":    { "id": 0x36, "cmd": 0x01, },
-        "state":    { "id": 0x36, "cmd": 0x81, },
-        "last":     { },
-        "power":    {"id": 0x36, "cmd": 0x43, "ack": 0xC3, },
-        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x06, },
-        "target":   { "id": 0x36, "cmd": 0x44, "ack": 0xC4, },
-    },
-        
+       
 }
 
 
@@ -87,20 +78,6 @@ DISCOVERY_PAYLOAD = {
             "unit_of_meas": "W",
         },
     ],
-    "thermostat": [ {
-        "_intg": "climate",
-        "~": "{prefix}/thermostat/{grp}_{id}",
-        "name": "{prefix}_thermostat_{grp}_{id}",
-        "mode_stat_t": "~/power/state",
-        "temp_stat_t": "~/target/state",
-        "temp_cmd_t": "~/target/command",
-        "curr_temp_t": "~/current/state",
-        "away_stat_t": "~/away/state",
-        "away_cmd_t": "~/away/command",
-        "modes": [ "off", "heat" ],
-        "min_temp": 5,
-        "max_temp": 40,
-    } ],
 }
 
 STATE_HEADER = {
@@ -428,83 +405,6 @@ import os.path
 import re
 
 ####################
-#VIRTUAL_DEVICE = {
-#    # 현관스위치: 엘리베이터 호출, 가스밸브 잠금 지원
-#    "entrance": {
-#        "header0": 0xAD,
-#        "resp_size": 4,
-#        "default": {
-#            "init":  { "header1": 0x5A, "resp": 0xB05A006A, }, # 처음 전기가 들어왔거나 한동안 응답을 안했을 때, 이것부터 해야 함
-#            "query": { "header1": 0x41, "resp": 0xB0560066, }, # 여기에 0xB0410071로 응답하면 gas valve 상태는 전달받지 않음
-#            "gas":   { "header1": 0x56, "resp": 0xB0410071, }, # 0xAD41에 항상 0xB041로 응답하면 이게 실행될 일은 없음
-#            "light": { "header1": 0x52, "resp": 0xB0520163, },
-#
-#            # 성공 시 ack들, 무시해도 상관 없지만...
-#            "gasa":  { "header1": 0x55, "resp": 0xB0410071, },
-#            "eva":   { "header1": 0x2F, "resp": 0xB0410071, },
-#        },
-#
-#        # 0xAD41에 다르게 응답하는 방법들, 이 경우 월패드가 다시 ack를 보내준다
-#        "trigger": {
-#            "gas":   { "ack": 0x55, "ON": 0xB0550164, "next": None, },
-#            "ev":    { "ack": 0x2F, "ON": 0xB02F011E, "next": None, },
-#        },
-#    },
-#
-#    # 신형 현관스위치
-#    "entrance2": {
-#        "header0": 0xCC,
-#        "resp_size": 5,
-#        "default": {
-#            "init":  { "header1": 0x5A, "resp": 0xB05A01006B, }, # 처음 전기가 들어왔거나 한동안 응답을 안했을 때, 이것부터 해야 함
-#            "query": { "header1": 0x41, "resp": 0xB041010070, }, # keepalive
-#            "date":  { "header1": 0x01, "resp": 0xB001010030, }, # 스위치로 현재 날짜, 시각 전달
-#            "broad": { "header1": 0x0B, "resp": 0xB00B01003A, }, # 다른 기기 상태 전달받음
-#            "ukn12": { "header1": 0x12, "resp": 0xB041010070, }, # 엘리베이터 호출 결과?
-#            "ukn09": { "header1": 0x09, "resp": 0xB009010038, },
-#            "ukn07": { "header1": 0x07, "resp": 0xB007010137, },
-#            "ukn02": { "header1": 0x02, "resp": 0xB041010070, },
-#
-#            # 성공 시 ack들, 무시해도 상관 없...으려나?
-#            "eva":   { "header1": 0x10, "resp": 0xB041010070, },
-#        },
-#
-#        # 0xCC41에 다르게 응답하는 방법들, 이 경우 월패드가 다시 ack를 보내준다
-#        "trigger": {
-#            "ev":    { "ack": 0x10, "ON": 0xB010010120, "next": None, },
-#        },
-#    },
-#
-#    # 인터폰: 공동현관 문열림 기능 지원
-#    "intercom": {
-#        "header0": 0xA4,
-#        "resp_size": 4,
-#        "default": {
-#            "init":    { "header1": 0x5A, "resp": 0xB05A006A, }, # 처음 전기가 들어왔거나 한동안 응답을 안했을 때, 이것부터 해야 함
-#            "query":   { "header1": 0x41, "resp": 0xB0410071, }, # 평상시
-#            "block":   { "header1": 0x42, "resp": 0xB0410071, }, # 다른 인터폰이 통화중이라던지 해서 조작 거부중인 상태
-#            "public":  { "header1": 0x32, "resp": 0xB0320002, }, # 공동현관 초인종 눌림
-#            "private": { "header1": 0x31, "resp": 0xB0310001, }, # 현관 초인종 눌림
-#            "opena":   { "header1": 0x36, "resp": 0xB0420072, }, # 통화 시작 요청 성공, 통화중이라고 ack 보내기
-#            "vopena":  { "header1": 0x38, "resp": 0xB0420072, }, # 영상통화 시작 요청 성공, 통화중이라고 ack 보내기
-#            "vconna":  { "header1": 0x35, "resp": 0xB0350005, }, # 영상 전송 시작됨
-#            "open2a":  { "header1": 0x3B, "resp": 0xB0420072, }, # 문열림 요청 성공, 통화중이라고 ack 보내기
-#            "end":     { "header1": 0x3E, "resp": 0xB03EFFFF, }, # 상황 종료, Byte[2] 가 반드시 일치해야 함
-#        },
-#
-#        "trigger": {
-#            "public":  { "ack": 0x36, "ON": 0xB0360204, "next": ("public2", "ON"), }, # 통화 시작
-#            "public2": { "ack": 0x3B, "ON": 0xB03B010A, "next": ("end", "ON"), }, # 문열림
-#            "priv_a":  { "ack": 0x36, "ON": 0xB0360107, "next": ("privat2", "ON"), }, # 현관 통화 시작 (초인종 울렸을 때)
-#            "priv_b":  { "ack": 0x35, "ON": 0xB0380008, "next": ("privat2", "ON"), }, # 현관 통화 시작 (평상시)
-#            "private": { "ack": 0x35, "ON": 0xB0380008, "next": ("privat2", "ON"), }, # 현관 통화 시작 (평상시)
-#            "privat2": { "ack": 0x3B, "ON": 0xB03B000B, "next": ("end", "ON"), }, # 현관 문열림
-#            "end":     { "ack": 0x3E, "ON": 0xB0420072, "next": None, }, # 문열림 후, 통화 종료 알려줄때까지 통화상태로 유지
-#        },
-#    },
-#}
-
-####################
 # 기존 월패드 애드온의 역할하는 부분
 RS485_DEVICE = {
     # 전등 스위치
@@ -515,90 +415,6 @@ RS485_DEVICE = {
 
         "power":    { "id": 0x0E, "cmd": 0x41, "ack": 0xC1, },
     },
-    # 각방 난방 제어
-    "thermostat": {
-        "query":    { "id": 0x36, "cmd": 0x01, },
-        "state":    { "id": 0x36, "cmd": 0x81, },
-        "last":     { },
-
-        "away":    { "id": 0x36, "cmd": 0x45, "ack": 0x00, },
-        "target":   { "id": 0x36, "cmd": 0x44, "ack": 0xC4, },
-    },
-        
-# KTDO: 기존 코드
-#        "query":    { "header": 0xAC79, "length":  5, "id": 2, },
-#        "state":    { "header": 0xB079, "length":  5, "id": 2, "parse": {("power", 3, "bitmap")} },
-#        "last":     { },
-#
-#        "power":    { "header": 0xAC7A, "length":  5, "id": 2, "pos": 3, },
-#    },
-#   
-#    # 환기장치 (전열교환기)
-#    "fan": {
-#        "query":    { "header": 0xC24E, "length":  6, },
-#        "state":    { "header": 0xB04E, "length":  6, "parse": {("power", 4, "fan_toggle"), ("speed", 2, "value")} },
-#        "last":     { },
-#
-#        "power":    { "header": 0xC24F, "length":  6, "pos": 2, },
-#        "speed":    { "header": 0xC24F, "length":  6, "pos": 2, },
-#    },
-#
-#    # 각방 난방 제어
-#    "thermostat": {
-#        "query":    { "header": 0xAE7C, "length":  8, "id": 2, },
-#        "state":    { "header": 0xB07C, "length":  8, "id": 2, "parse": {("power", 3, "heat_toggle"), ("target", 4, "value"), ("current", 5, "value")} },
-#        "last":     { },
-#
-#        "power":    { "header": 0xAE7D, "length":  8, "id": 2, "pos": 3, },
-#        "target":   { "header": 0xAE7F, "length":  8, "id": 2, "pos": 3, },
-#    },
-#        
-#    # 각방 난방 제어
-#    "thermostat": {
-#        "query":    { "header": 0xAE7C, "length":  8, "id": 2, },
-#        "state":    { "header": 0xB07C, "length":  8, "id": 2, "parse": {("power", 3, "heat_toggle"), ("target", 4, "value"), ("current", 5, "value")} },
-#        "last":     { },
-#
-#        "power":    { "header": 0xAE7D, "length":  8, "id": 2, "pos": 3, },
-#        "target":   { "header": 0xAE7F, "length":  8, "id": 2, "pos": 3, },
-#    },
-#
-#    # 대기전력차단 스위치 (전력사용량 확인)
-#    "plug": {
-#        "query":    { "header": 0xC64A, "length": 10, "id": 2, },
-#        "state":    { "header": 0xB04A, "length": 10, "id": 2, "parse": {("power", 3, "toggle"), ("idlecut", 3, "toggle2"), ("current", 5, "2Byte")} },
-#        "last":     { },
-#
-#        "power":    { "header": 0xC66E, "length": 10, "id": 2, "pos": 3, },
-#        "idlecut":  { "header": 0xC64B, "length": 10, "id": 2, "pos": 3, },
-#    },
-#
-#    # 일괄조명: 현관 스위치 살아있으면...
-#    "cutoff": {
-#        "query":    { "header": 0xAD52, "length":  4, },
-#        "state":    { "header": 0xB052, "length":  4, "parse": {("power", 2, "toggle")} }, # 1: 정상, 0: 일괄소등
-#        "last":     { },
-#
-#        "power":    { "header": 0xAD53, "length":  4, "pos": 2, },
-#    },
-#
-#    # 부엌 가스 밸브
-#    "gas_valve": {
-#        "query":    { "header": 0xAB41, "length":  4, },
-#        #"state":    { "header": 0xB041, "length":  4, "parse": {("power", 2, "toggle")} }, # 0: 정상, 1: 차단; 0xB041은 공용 ack이므로 처리하기 복잡함
-#        "state":    { "header": 0xAD56, "length":  4, "parse": {("power", 2, "gas_toggle")} }, # 0: 정상, 1: 차단; 월패드가 현관 스위치에 보내주는 정보로 확인 가능
-#        "last":     { },
-#
-#        "power":    { "header": 0xAB78, "length":  4, }, # 0 으로 잠그기만 가능
-#    },
-#
-#    # 실시간에너지 0:전기, 1:가스, 2:수도
-#    "energy": {
-#        "query":    { "header": 0xAA6F, "length":  4, "id": 2, },
-#        "state":    { "header": 0xB06F, "length":  7, "id": 2, "parse": {("current", 3, "6decimal")} },
-#        "last":     { },
-#    },
-}
 
 DISCOVERY_DEVICE = {
     "ids": ["ezville_wallpad",],
@@ -607,74 +423,6 @@ DISCOVERY_DEVICE = {
     "mdl": "EzVille Wallpad",
     "sw": "ktdo79/ha_addons/ezville_wallpad",
 }
-
-#DISCOVERY_VIRTUAL = {
-#    "entrance": [
-#        {
-#            "_intg": "switch",
-#            "~": "{}/virtual/entrance/ev",
-#            "name": "{}_elevator",
-#            "stat_t": "~/state",
-#            "cmd_t": "~/command",
-#            "icon": "mdi:elevator",
-#        },
-#        {
-#            "_intg": "switch",
-#            "~": "{}/virtual/entrance/gas",
-#            "name": "{}_gas_cutoff",
-#            "stat_t": "~/state",
-#            "cmd_t": "~/command",
-#            "icon": "mdi:valve",
-#        },
-#    ],
-#    "entrance2": [
-#        {
-#            "_intg": "switch",
-#            "~": "{}/virtual/entrance2/ev",
-#            "name": "{}_new_elevator",
-#            "stat_t": "~/state",
-#            "cmd_t": "~/command",
-#            "icon": "mdi:elevator",
-#        },
-#    ],
-#    "intercom": [
-#        {
-#            "_intg": "switch",
-#            "~": "{}/virtual/intercom/public",
-#            "name": "{}_intercom_public",
-#            "avty_t": "~/available",
-#            "stat_t": "~/state",
-#            "cmd_t": "~/command",
-#            "icon": "mdi:door-closed",
-#        },
-#        {
-#            "_intg": "switch",
-#            "~": "{}/virtual/intercom/private",
-#            "name": "{}_intercom_private",
-#            "stat_t": "~/state",
-#            "cmd_t": "~/command",
-#            "icon": "mdi:door-closed",
-#        },
-#        {
-#            "_intg": "binary_sensor",
-#            "~": "{}/virtual/intercom/public",
-#            "name": "{}_intercom_public",
-#            "dev_cla": "sound",
-#            "stat_t": "~/available",
-#            "pl_on": "online",
-#            "pl_off": "offline",
-#        },
-#        {
-#            "_intg": "binary_sensor",
-#            "~": "{}/virtual/intercom/private",
-#            "name": "{}_intercom_private",
-#            "dev_cla": "sound",
-#            "stat_t": "~/available",
-#            "pl_on": "online",
-#            "pl_off": "offline",
-#        },
-#    ],
-#}
 
 DISCOVERY_PAYLOAD = {
     "light": [ {
@@ -685,81 +433,6 @@ DISCOVERY_PAYLOAD = {
         "stat_t": "~/power/state",
         "cmd_t": "~/power/command",
     } ],
- #   "fan": [ {
- #       "_intg": "fan",
- #       "~": "{prefix}/fan/{idn}",
- #       "name": "{prefix}_fan_{idn}",
- #       "opt": True,
- #       "stat_t": "~/power/state",
- #       "cmd_t": "~/power/command",
- #       "spd_stat_t": "~/speed/state",
- #       "spd_cmd_t": "~/speed/command",
- #       "pl_on": 5,
- #       "pl_off": 6,
- #       "pl_lo_spd": 3,
- #       "pl_med_spd": 2,
- #       "pl_hi_spd": 1,
- #       "spds": ["low", "medium", "high"],
- #   } ],
-    "thermostat": [ {
-        "_intg": "climate",
-        "~": "{prefix}/thermostat/{grp}_{id}",
-        "name": "{prefix}_thermostat_{grp}_{id}",
-        "mode_stat_t": "~/power/state",
-        "temp_stat_t": "~/target/state",
-        "temp_cmd_t": "~/target/command",
-        "curr_temp_t": "~/current/state",
-        "away_stat_t": "~/away/state",
-        "away_cmd_t": "~/away/command",
-        "modes": [ "off", "heat" ],
-        "min_temp": 5,
-        "max_temp": 40,
-    } ],
-#    "plug": [ {
-#        "_intg": "switch",
-#        "~": "{prefix}/plug/{idn}/power",
-#        "name": "{prefix}_plug_{idn}",
-#        "stat_t": "~/state",
-#        "cmd_t": "~/command",
-#        "icon": "mdi:power-plug",
-#    },
-#    {
-#        "_intg": "switch",
-#        "~": "{prefix}/plug/{idn}/idlecut",
-#        "name": "{prefix}_plug_{idn}_standby_cutoff",
-#        "stat_t": "~/state",
-#        "cmd_t": "~/command",
-#        "icon": "mdi:leaf",
-#    },
-#    {
-#        "_intg": "sensor",
-#        "~": "{prefix}/plug/{idn}",
-#        "name": "{prefix}_plug_{idn}_power_usage",
-#        "stat_t": "~/current/state",
-#        "unit_of_meas": "W",
-#    } ],
-#    "cutoff": [ {
-#        "_intg": "switch",
-#        "~": "{prefix}/cutoff/{idn}/power",
-#        "name": "{prefix}_light_cutoff_{idn}",
-#        "stat_t": "~/state",
-#        "cmd_t": "~/command",
-#    } ],
-#    "gas_valve": [ {
-#        "_intg": "sensor",
-#        "~": "{prefix}/gas_valve/{idn}",
-#        "name": "{prefix}_gas_valve_{idn}",
-#        "stat_t": "~/power/state",
-#        "icon": "mdi:valve",
-#    } ],
-#    "energy": [ {
-#        "_intg": "sensor",
-#        "~": "{prefix}/energy/{idn}",
-#        "name": "_",
-#        "stat_t": "~/current/state",
-#        "unit_of_meas": "_",
-#        "val_tpl": "_",
-#    } ],
 }
 
 STATE_HEADER = {
@@ -793,22 +466,9 @@ for device, prop in RS485_DEVICE.items():
 #HEADER_0_STATE = 0xB0
 # KTDO: Ezville에서는 가스밸브 STATE Query 코드로 처리
 HEADER_0_FIRST = [ [0x12, 0x01], [0x12, 0x0F] ]
-# KTDO: Virtual은 Skip
-#header_0_virtual = {}
-# KTDO: 아래 미사용으로 코멘트 처리
-#HEADER_1_SCAN = 0x5A
+
 header_0_first_candidate = [ [[0x33, 0x01], [0x33, 0x0F]], [[0x36, 0x01], [0x36, 0x0F]] ]
 
-
-# human error를 로그로 찍기 위해서 그냥 전부 구독하자
-#SUB_LIST = { "{}/{}/+/+/command".format(Options["mqtt"]["prefix"], device) for device in RS485_DEVICE } |\
-#           { "{}/virtual/{}/+/command".format(Options["mqtt"]["prefix"], device) for device in VIRTUAL_DEVICE }
-
-# KTDO: Virtual은 Skip
-#virtual_watch = {}
-#virtual_trigger = {}
-#virtual_ack = {}
-#virtual_avail = []
 
 serial_queue = {}
 serial_ack = {}
@@ -1172,17 +832,6 @@ def mqtt_device(topics, payload):
         packet[6] = int(float(payload))
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
-
-    elif device == "thermostat":
-        length = 8
-        packet = bytearray(length)
-        packet[0] = 0xF7
-        packet[1] = cmd["id"]
-        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
-        packet[3] = cmd["cmd"]
-        packet[4] = 0x01
-        packet[5] = int(float(payload))
-        packet[6], packet[7] = serial_generate_checksum(packet)
         
     elif device == "plug":
         length = 8
@@ -1194,6 +843,7 @@ def mqtt_device(topics, payload):
         packet[4] = 0x01
         packet[5] = 0x11 if payload == "ON" else 0x10
         packet[6], packet[7] = serial_generate_checksum(packet)
+        
     if packet:
         packet = bytes(packet)
         serial_queue[packet] = time.time()
@@ -1355,18 +1005,6 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
-    elif device == "thermostat":
-        # KTDO: EzVille에 맞게 수정
-        grp_id = int(packet[2] >> 4)
-        room_count = int((int(packet[4]) - 5) / 2)
-        
-        for id in range(1, room_count + 1):
-            payload = DISCOVERY_PAYLOAD[device][0].copy()
-            payload["~"] = payload["~"].format(prefix=prefix, grp=grp_id, id=id)
-            payload["name"] = payload["name"].format(prefix=prefix, grp=grp_id, id=id)
-
-            mqtt_discovery(payload)
-
 
 # KTDO: 수정 완료
 def serial_receive_state(device, packet):
@@ -1427,43 +1065,6 @@ def serial_receive_state(device, packet):
                     mqtt.publish(topic, value)
                     last_topic_list[topic] = value
 
-    elif device == "thermostat":
-        grp_id = int(packet[2] >> 4)
-        room_count = int((int(packet[4]) - 5) / 2)
-        
-        for id in range(1, room_count + 1):
-            topic1 = "{}/{}/{}_{}/power/state".format(prefix, device, grp_id, id)
-            topic2 = "{}/{}/{}_{}/away/state".format(prefix, device, grp_id, id)
-            topic3 = "{}/{}/{}_{}/target/state".format(prefix, device, grp_id, id)
-            topic4 = "{}/{}/{}_{}/current/state".format(prefix, device, grp_id, id)
-            
-            if ((packet[6] & 0x1F) >> (room_count - id)) & 1:
-                value1 = "ON"
-            else:
-                value1 = "OFF"
-            if ((packet[7] & 0x1F) >> (room_count - id)) & 1:
-                value2 = "ON"
-            else:
-                value2 = "OFF"
-            value3 = packet[8 + id * 2]
-            value4 = packet[9 + id * 2]
-            
-            if last_topic_list.get(topic1) != value1:
-                logger.info("publish to HA:   {} = {} ({})".format(topic1, value1, packet.hex()))
-                mqtt.publish(topic1, value1)
-                last_topic_list[topic1] = value1
-            if last_topic_list.get(topic2) != value2:
-                logger.info("publish to HA:   {} = {} ({})".format(topic2, value2, packet.hex()))
-                mqtt.publish(topic2, value2)
-                last_topic_list[topic2] = value2
-            if last_topic_list.get(topic3) != value3:
-                logger.info("publish to HA:   {} = {} ({})".format(topic3, value3, packet.hex()))
-                mqtt.publish(topic3, value3)
-                last_topic_list[topic3] = value3
-            if last_topic_list.get(topic4) != value4:
-                logger.info("publish to HA:   {} = {} ({})".format(topic4, value4, packet.hex()))
-                mqtt.publish(topic4, value4)
-                last_topic_list[topic4] = value4
                 
 # KTDO: 수정 완료
 def serial_get_header(conn):
