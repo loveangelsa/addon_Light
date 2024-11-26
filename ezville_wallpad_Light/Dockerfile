@@ -11,11 +11,8 @@ RUN python3 -m pip install paho-mqtt
 
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir paho-mqtt
-#RUN pip install --no-cache-dir telnetlib
-
 COPY . /srv
-#COPY ezville_wallpad3.py /srv/
-#COPY ezville_wallpad2.py /srv/
+
 COPY ezville_wallpad.py /srv/
 RUN chmod a+x /srv/run_addon.sh
 
