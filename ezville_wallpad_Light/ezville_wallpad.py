@@ -422,6 +422,7 @@ DISCOVERY_DEVICE = {
     "mf": "EzVille",
     "mdl": "EzVille Wallpad",
     "sw": "ktdo79/ha_addons/ezville_wallpad",
+    },
 }
 
 DISCOVERY_PAYLOAD = {
