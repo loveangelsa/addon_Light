@@ -660,10 +660,12 @@ def serial_send_command(conn):
 
 
 # KTDO: 수정 완료
-def serial loop():
+def serial_loop():
     logger.info("start loop ...")
     scan_count = 0
     send_aggressive = False
+
+    start_time = time.time()
     while True:
         # 로그 출력
         sys.stdout.flush()
