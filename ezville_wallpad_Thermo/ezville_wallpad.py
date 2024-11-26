@@ -532,7 +532,7 @@ def serial_receive_state(device, packet):
 
     # 처음 받은 상태인 경우, discovery 용도로 등록한다.
     if Options["mqtt"]["_discovery"] and not last.get(idn):
-        serial_new_device(device, packet, idn)
+        serial_new_device(device, packet)
         last[idn] = True
 
         # 장치 등록 먼저 하고, 상태 등록은 그 다음 턴에 한다. (난방 상태 등록 무시되는 현상 방지)
@@ -547,18 +547,18 @@ def serial_receive_state(device, packet):
     if device == "thermostat":
         grp_id = int(packet[2] >> 4)
         room_count = int((int(packet[4]) - 5) / 2)
-
-        for thermostat_id in range(1, room_count + 1):
+        
+        for id in range(1, room_count + 1):
             topic1 = "{}/{}/{}_{}/power/state".format(prefix, device, grp_id, id)
             topic2 = "{}/{}/{}_{}/away/state".format(prefix, device, grp_id, id)
             topic3 = "{}/{}/{}_{}/target/state".format(prefix, device, grp_id, id)
             topic4 = "{}/{}/{}_{}/current/state".format(prefix, device, grp_id, id)
             
-            if ((packet[6] & 0x1F) >> (room_count - thermostat_id)) & 1:
+            if ((packet[6] & 0x1F) >> (room_count - id)) & 1:
                 value1 = "ON"
             else:
                 value1 = "OFF"
-            if ((packet[7] & 0x1F) >> (room_count - thermostat_id)) & 1:
+            if ((packet[7] & 0x1F) >> (room_count - id)) & 1:
                 value2 = "ON"
             else:
                 value2 = "OFF"
@@ -587,19 +587,17 @@ def serial_get_header(conn):
     try:
         # 0x80보다 큰 byte가 나올 때까지 대기
         # KTDO: 시작 F7 찾기
-        while True:
+        while 1:
             header_0 = conn.recv(1)[0]
             # if header_0 >= 0x80: break
-            if header_0 == 0xF7:
-                break
+            if header_0 == 0xF7: break
 
         # 중간에 corrupt되는 data가 있으므로 연속으로 0x80보다 큰 byte가 나오면 먼젓번은 무시한다
         # KTDO: 연속 0xF7 무시
         while 1:
             header_1 = conn.recv(1)[0]
             # if header_1 < 0x80: break
-            if header_1 != 0xF7:
-                break
+            if header_1 != 0xF7: break
             header_0 = header_1
 
         header_2 = conn.recv(1)[0]
@@ -623,12 +621,12 @@ def serial_ack_command(packet):
 
 
 # KTDO: 수정 완료
-def serial_send_command(conn):
+def serial_send_command():
     # 한번에 여러개 보내면 응답이랑 꼬여서 망함
     cmd = next(iter(serial_queue))
-    if conn.capabilities != "ALL" and ACK_HEADER[cmd[1]][0] not in conn.capabilities:
-        return
     conn.send(cmd)
+
+    #ack = bytearray(cmd[0:3])
     # KTDO: Ezville은 4 Byte까지 확인 필요
     ack = bytearray(cmd[0:4])
     ack[3] = ACK_MAP[cmd[1]][cmd[3]]
@@ -640,84 +638,80 @@ def serial_send_command(conn):
     # retry time 관리, 초과했으면 제거
     elapsed = time.time() - serial_queue[cmd]
     if elapsed > Options["rs485"]["max_retry"]:
-        logger.error("send to device:  %s max retry time exceeded!", cmd.hex())
+        logger.error("send to device:  {} max retry time exceeded!".format(cmd.hex()))
         serial_queue.pop(cmd)
         serial_ack.pop(ack, None)
     elif elapsed > 3:
-        logger.warning(
-            "send to device:  {}, try another {:.01f} seconds...".format(
-                cmd.hex(), Options["rs485"]["max_retry"] - elapsed
-            )
-        )
+        logger.warning("send to device:  {}, try another {:.01f} seconds...".format(cmd.hex(), Options["rs485"]["max_retry"] - elapsed))
         serial_ack[ack] = cmd
     elif waive_ack:
-        logger.info("waive ack:  %s", cmd.hex())
+        logger.info("waive ack:  {}".format(cmd.hex()))
         serial_queue.pop(cmd)
         serial_ack.pop(ack, None)
     else:
-        logger.info("send to device:  %s", cmd.hex())
+        logger.info("send to device:  {}".format(cmd.hex()))
         serial_ack[ack] = cmd
 
-
 # KTDO: 수정 완료
-def serial_loop():
-    logger.info("start loop ...")
-    loop_count = 0
-    scan_count = 0
-    send_aggressive = False
-
-    start_time = time.time()
-    while True:
-        # 로그 출력
-        sys.stdout.flush()
-
-        # 첫 Byte만 0x80보다 큰 두 Byte를 찾음
-        header_0, header_1, header_2, header_3 = serial_get_header(conn)
-        # KTDO: 패킷단위로 분석할 것이라 합치지 않음.
-        # header = (header_0 << 8) | header_1
-        # device로부터의 state 응답이면 확인해서 필요시 HA로 전송해야 함
         if header_1 in STATE_HEADER and header_3 in STATE_HEADER[header_1]:
+            #packet = bytes([header_0, header_1])
+
+            # 몇 Byte짜리 패킷인지 확인
+            #device, remain = STATE_HEADER[header]
             device = STATE_HEADER[header_1][0]
+            # KTDO: 데이터 길이는 다음 패킷에서 확인
             header_4 = conn.recv(1)[0]
             data_length = int(header_4)
-
+            
             # KTDO: packet 생성 위치 변경
             packet = bytes([header_0, header_1, header_2, header_3, header_4])
-
+            
             # 해당 길이만큼 읽음
             # KTDO: 데이터 길이 + 2 (XOR + ADD) 만큼 읽음
             packet += conn.recv(data_length + 2)
 
             # checksum 오류 없는지 확인
-            # KTDO: checksum 및 ADD 오류 없는지 확인
+            # KTDO: checksum 및 ADD 오류 없는지 확인 
             if not serial_verify_checksum(packet):
                 continue
 
             # 디바이스 응답 뒤에도 명령 보내봄
             if serial_queue and not conn.check_pending_recv():
-                serial_send_command(conn=conn)
+                serial_send_command()
                 conn.set_pending_recv()
+
             # 적절히 처리한다
             serial_receive_state(device, packet)
 
         # KTDO: 이전 명령의 ACK 경우
         elif header_1 in ACK_HEADER and header_3 in ACK_HEADER[header_1]:
             # 한 byte 더 뽑아서, 보냈던 명령의 ack인지 확인
-            # header_2 = conn.recv(1)[0]
-            # header = (header << 8) | header_2
+            #header_2 = conn.recv(1)[0]
+            #header = (header << 8) | header_2
             header = header_0 << 24 | header_1 << 16 | header_2 << 8 | header_3
+
             if header in serial_ack:
                 serial_ack_command(header)
+        
+        # KTDO: 필요 없음.
+        # 마지막으로 받은 query를 저장해둔다 (조명 discovery에 필요)
+        #elif header in QUERY_HEADER:
+        #    # 나머지 더 뽑아서 저장
+        #    global last_query
+        #    packet = conn.recv(QUERY_HEADER[header][1])
+        #    packet = header.to_bytes(2, "big") + packet
+        #    last_query = packet
 
         # 명령을 보낼 타이밍인지 확인: 0xXX5A 는 장치가 있는지 찾는 동작이므로,
         # 아직도 이러고 있다는건 아무도 응답을 안할걸로 예상, 그 타이밍에 끼어든다.
         # KTDO: EzVille은 표준에 따라 Ack 이후 다음 Request 까지의 시간 활용하여 command 전송
         #       즉 State 확인 후에만 전달
         elif (header_3 == 0x81 or 0x8F or 0x0F) or send_aggressive:
-            # if header_1 == HEADER_1_SCAN or send_aggressive:
+        
+        #if header_1 == HEADER_1_SCAN or send_aggressive:
             scan_count += 1
             if serial_queue and not conn.check_pending_recv():
-                serial_send_command(conn=conn)
+                serial_send_command()
                 conn.set_pending_recv()
 
         # 전체 루프 수 카운트
@@ -751,7 +745,7 @@ def serial_loop():
             HEADER_0_FIRST = header_0_first_candidate.pop()
             start_time = time.time()
             scan_count = 0
-
+            
 # KTDO: 수정 완료
 def dump_loop():
     dump_time = Options["rs485"]["dump_time"]
@@ -770,7 +764,7 @@ def dump_loop():
         logs = []
         while time.time() - start_time < dump_time:
             try:
-                data = conn.recv(128)
+                data = conn.recv(256)
             except:
                 continue
 
@@ -788,15 +782,18 @@ def dump_loop():
 
 if __name__ == "__main__":
     global conn
+
     # configuration 로드 및 로거 설정
     init_logger()
     init_option(sys.argv)
     init_logger_file()
 
+# KTDO: Virtual Device는 Skip
+#    init_virtual_device()
 
     if Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
-        conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
+        conn = EzVilleSocket()
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
