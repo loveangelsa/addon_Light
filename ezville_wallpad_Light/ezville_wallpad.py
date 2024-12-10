@@ -830,7 +830,7 @@ if __name__ == "__main__":
 
     if Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
-        conn = EzVilleSocket()
+        conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
