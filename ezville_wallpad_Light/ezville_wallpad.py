@@ -8,7 +8,6 @@ import socket
 import threading
 import serial
 import paho.mqtt.client as paho_mqtt
-import paho.mqtt.client as mqtt
 import json
 
 import sys
@@ -36,18 +35,16 @@ RS485_DEVICE = {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
     },
-       
 }
-
 
 DISCOVERY_DEVICE = {
     "ids": [
-        "ezville_wallpad",
+        "ezville_wallpad_Light,plug",
     ],
-    "name": "ezville_wallpad",
-    "mf": "EzVille",
-    "mdl": "EzVille Wallpad",
-    "sw": "loveangelsa/addon_Light/ezville_wallpad",
+    "name": "ezville_wallpad_Light,plug",
+    "mf": "EzVille_Light,plug",
+    "mdl": "EzVille Wallpad_Light,plug",
+    "sw": "loveangelsa/addon_Light",
 }
 
 DISCOVERY_PAYLOAD = {
@@ -78,6 +75,25 @@ DISCOVERY_PAYLOAD = {
             "unit_of_meas": "W",
         },
     ],
+    "cutoff": [
+        {
+            "_intg": "switch",
+            "~": "{prefix}/cutoff/{idn}/power",
+            "name": "{prefix}_light_cutoff_{idn}",
+            "stat_t": "~/state",
+            "cmd_t": "~/command",
+        }
+    ],
+    "energy": [
+        {
+            "_intg": "sensor",
+            "~": "{prefix}/energy/{idn}",
+            "name": "_",
+            "stat_t": "~/current/state",
+            "unit_of_meas": "_",
+            "val_tpl": "_",
+        }
+    ],
 }
 
 STATE_HEADER = {
@@ -85,13 +101,12 @@ STATE_HEADER = {
     for device, prop in RS485_DEVICE.items()
     if "state" in prop
 }
-
 # 제어 명령의 ACK header만 모음
 ACK_HEADER = {
     prop[cmd]["id"]: (device, prop[cmd]["ack"])
     for device, prop in RS485_DEVICE.items()
-        for cmd, code in prop.items()
-            if "ack" in code
+    for cmd, code in prop.items()
+    if "ack" in code
 }
 # KTDO: 제어 명령과 ACK의 Pair 저장
 
@@ -120,7 +135,7 @@ serial_ack = {}
 
 last_query = int(0).to_bytes(2, "big")
 last_topic_list = {}
-from paho.mqtt.enums import CallbackAPIVersion
+
 mqtt = paho_mqtt.Client(paho_mqtt.CallbackAPIVersion.VERSION2)
 mqtt_connected = False
 
@@ -365,8 +380,6 @@ def mqtt_device(topics, payload):
         logger.error("    no payload!")
         return
 
-    # ON, OFF인 경우만 1, 0으로 변환, 복잡한 경우 (fan 등) 는 값으로 받자
-
     # 오류 체크 끝났으면 serial 메시지 생성
     cmd = RS485_DEVICE[device][cmd]
     packet = None
@@ -390,10 +403,21 @@ def mqtt_device(topics, payload):
         packet[6] = payload
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
-
+    # TODO : gasvalve, batch, plug
+    elif device == "plug":
+        length = 8
+        packet = bytearray(length)
+        packet[0] = 0xF7
+        packet[1] = cmd["id"]
+        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
+        packet[3] = cmd["cmd"]
+        packet[4] = 0x01
+        packet[5] = 0x11 if payload == "ON" else 0x10
+        packet[6], packet[7] = serial_generate_checksum(packet)
     if packet:
         packet = bytes(packet)
         serial_queue[packet] = time.time()
+
 
 # KTDO: 수정 완료
 def mqtt_init_discovery():
@@ -452,6 +476,7 @@ def mqtt_on_disconnect(client, userdata, flags, rc, properties):
     logger.warning("MQTT disconnected! (%s)", rc)
     global mqtt_connected
     mqtt_connected = False
+
 
 # KTDO: 수정 완료
 def start_mqtt_loop():
@@ -538,6 +563,18 @@ def serial_new_device(device, packet, idn=None):
 
             mqtt_discovery(payload)
 
+    elif device == "thermostat":
+        # KTDO: EzVille에 맞게 수정
+        grp_id = int(packet[2] >> 4)
+        room_count = int((int(packet[4]) - 5) / 2)
+        
+        for room_id in range(1, room_count + 1):
+            payload = DISCOVERY_PAYLOAD[device][0].copy()
+            payload["~"] = payload["~"].format(prefix=prefix, grp=grp_id, id=room_id)
+            payload["name"] = payload["name"].format(prefix=prefix, grp=grp_id, id=room_id)
+
+            mqtt_discovery(payload)
+
     elif device == "plug":
         # KTDO: EzVille에 맞게 수정
         grp_id = int(packet[2] >> 4)
@@ -548,6 +585,28 @@ def serial_new_device(device, packet, idn=None):
             payload["name"] = payload["name"].format(
                 prefix=prefix, idn=f"{grp_id}_{plug_id}"
             )
+
+            mqtt_discovery(payload)
+
+    elif device in DISCOVERY_PAYLOAD:
+        for payloads in DISCOVERY_PAYLOAD[device]:
+            payload = payloads.copy()
+
+            payload["~"] = payload["~"].format(prefix=prefix, idn=idn)
+            payload["name"] = payload["name"].format(prefix=prefix, idn=idn)
+
+            # 실시간 에너지 사용량에는 적절한 이름과 단위를 붙여준다 (단위가 없으면 그래프로 출력이 안됨)
+            # KTDO: Ezville에 에너지 확인 쿼리 없음
+            if device == "energy":
+                payload["name"] = "{}_{}_consumption".format(
+                    prefix, ("power", "gas", "water")[idn]
+                )
+                payload["unit_of_meas"] = ("W", "m³/h", "m³/h")[idn]
+                payload["val_tpl"] = (
+                    "{{ value }}",
+                    "{{ value | float / 100 }}",
+                    "{{ value | float / 100 }}",
+                )[idn]
 
             mqtt_discovery(payload)
 
@@ -611,7 +670,7 @@ def serial_receive_state(device, packet):
                     mqtt.publish(topic, value)
                     last_topic_list[topic] = value
 
-                
+
 # KTDO: 수정 완료
 def serial_get_header(conn):
     try:
@@ -687,6 +746,7 @@ def serial_send_command(conn):
     else:
         logger.info("send to device:  %s", cmd.hex())
         serial_ack[ack] = cmd
+
 
 # KTDO: 수정 완료
 def daemon(conn):
