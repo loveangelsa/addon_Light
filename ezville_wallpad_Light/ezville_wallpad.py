@@ -19,7 +19,6 @@ import os.path
 import re
 
 RS485_DEVICE = {
-    # 전등 스위치
     "light": {
         "query":    { "id": 0x0E, "cmd": 0x01, },
         "state":    { "id": 0x0E, "cmd": 0x81, },
@@ -27,7 +26,32 @@ RS485_DEVICE = {
 
         "power":    { "id": 0x0E, "cmd": 0x41, "ack": 0xC1, },
     },
-    # 각방 
+    "thermostat": {
+        "state": {
+            "id": 0x36,
+            "cmd": 0x81,
+        },
+        "last": {},
+        "away": {
+            "id": 0x36,
+            "cmd": 0x46,
+            "ack": 0xC6,
+        },
+        "target": {
+            "id": 0x36,
+            "cmd": 0x44,
+            "ack": 0xC4,
+        },
+        "power": {
+            "id": 0x36,
+            "cmd": 0x43,
+            "ack": 0xC3,
+        },
+    },
+    "batch": {  # 안보임
+        "state": {"id": 0x33, "cmd": 0x81},
+        "press": {"id": 0x33, "cmd": 0x41, "ack": 0xC1},
+    },
     "plug": {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
@@ -36,11 +60,11 @@ RS485_DEVICE = {
 
 DISCOVERY_DEVICE = {
     "ids": [
-        "ezville_wallpad_Light,plug",
+        "ezville_wallpad_Light,Plug",
     ],
-    "name": "ezville_wallpad_Light,plug",
-    "mf": "EzVille_Light,plug",
-    "mdl": "EzVille Wallpad_Light,plug",
+    "name": "ezville_wallpad_Light,Plug",
+    "mf": "EzVille_Light,Plug",
+    "mdl": "EzVille Wallpad_Light,Plug",
     "sw": "loveangelsa/addon_Light",
 }
 
@@ -53,6 +77,23 @@ DISCOVERY_PAYLOAD = {
             "opt": True,
             "stat_t": "~/power/state",
             "cmd_t": "~/power/command",
+        }
+    ],
+    "thermostat": [
+        {
+            "_intg": "climate",
+            "~": "{prefix}/thermostat/{grp}_{id}",
+            "name": "{prefix}_thermostat_{grp}_{id}",
+            "mode_stat_t": "~/power/state",
+            "mode_cmd_t": "~/power/command",
+            "temp_stat_t": "~/target/state",
+            "temp_cmd_t": "~/target/command",
+            "curr_temp_t": "~/current/state",
+            "away_stat_t": "~/away/state",
+            "away_cmd_t": "~/away/command",
+            "modes": ["off", "heat"],
+            "min_temp": 5,
+            "max_temp": 40,
         }
     ],
     "plug": [
@@ -71,6 +112,25 @@ DISCOVERY_PAYLOAD = {
             "stat_t": "~/current/state",
             "unit_of_meas": "W",
         },
+    ],
+    "cutoff": [
+        {
+            "_intg": "switch",
+            "~": "{prefix}/cutoff/{idn}/power",
+            "name": "{prefix}_light_cutoff_{idn}",
+            "stat_t": "~/state",
+            "cmd_t": "~/command",
+        }
+    ],
+    "energy": [
+        {
+            "_intg": "sensor",
+            "~": "{prefix}/energy/{idn}",
+            "name": "_",
+            "stat_t": "~/current/state",
+            "unit_of_meas": "_",
+            "val_tpl": "_",
+        }
     ],
 }
 
@@ -92,8 +152,6 @@ ACK_MAP = defaultdict(lambda: defaultdict(dict))
 for device, prop in RS485_DEVICE.items():
     for cmd, code in prop.items():
         if "ack" in code:
-            ACK_MAP[code["id"]] = {}
-            ACK_MAP[code["id"]][code["cmd"]] = {}
             ACK_MAP[code["id"]][code["cmd"]] = code["ack"]
 
 # KTDO: 아래 미사용으로 코멘트 처리
@@ -360,6 +418,8 @@ def mqtt_device(topics, payload):
         logger.error("    no payload!")
         return
 
+    # ON, OFF인 경우만 1, 0으로 변환, 복잡한 경우 (fan 등) 는 값으로 받자
+
     # 오류 체크 끝났으면 serial 메시지 생성
     cmd = RS485_DEVICE[device][cmd]
     packet = None
@@ -383,6 +443,20 @@ def mqtt_device(topics, payload):
         packet[6] = payload
         packet[7] = 0x00
         packet[8], packet[9] = serial_generate_checksum(packet)
+    elif device == "thermostat":
+        if payload == "heat":
+            payload = 0x01
+        elif payload == "off":
+            payload = 0x00
+        length = 8
+        packet = bytearray(length)
+        packet[0] = 0xF7
+        packet[1] = cmd["id"]
+        packet[2] = int(idn.split("_")[0]) << 4 | int(idn.split("_")[1])
+        packet[3] = cmd["cmd"]
+        packet[4] = 0x01
+        packet[5] = int(float(payload))
+        packet[6], packet[7] = serial_generate_checksum(packet)
     # TODO : gasvalve, batch, plug
     elif device == "plug":
         length = 8
@@ -631,6 +705,35 @@ def serial_receive_state(device, packet):
                 mqtt.publish(topic, value)
                 last_topic_list[topic] = value
 
+    elif device == "thermostat":
+        grp_id = int(packet[2] >> 4)
+        room_count = int((int(packet[4]) - 5) / 2)
+
+        for thermostat_id in range(1, room_count + 1):
+            if ((packet[6] & 0x1F) >> (room_count - thermostat_id)) & 1:
+                value1 = "ON"
+            else:
+                value1 = "OFF"
+            if ((packet[7] & 0x1F) >> (room_count - thermostat_id)) & 1:
+                value2 = "ON"
+            else:
+                value2 = "OFF"
+            for sub_topic, value in zip(
+                ["mode", "away", "target", "current"],
+                [
+                    value1,
+                    value2,
+                    packet[8 + thermostat_id * 2],
+                    packet[9 + thermostat_id * 2],
+                ],
+            ):
+                topic = f"{prefix}/{device}/{grp_id}_{thermostat_id}/{sub_topic}/state"
+                if last_topic_list.get(topic) != value:
+                    logger.debug(
+                        "publish to HA:   %s = %s (%s)", topic, value, packet.hex()
+                    )
+                    mqtt.publish(topic, value)
+                    last_topic_list[topic] = value
     elif device == "plug":
         grp_id = int(packet[2] >> 4)
         plug_count = int(packet[4] / 3)
@@ -828,9 +931,24 @@ if __name__ == "__main__":
     init_logger_file()
     start_mqtt_loop()
 
-    if Options["serial_mode"] == "socket":
+    if Options["serial_mode"] == "sockets":
+        for _socket in Options["sockets"]:
+            conn = EzVilleSocket(_socket["address"], _socket["port"], _socket["capabilities"])
+            init_connect(conn=conn)
+            thread = threading.Thread(target=daemon, args=(conn,))
+            thread.daemon = True
+            thread.start()
+        while True:
+            time.sleep(10**8)
+    elif Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
         conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
+    if Options["serial_mode"] != "sockets":
+        init_connect(conn=conn)
+        try:
+            daemon(conn=conn)
+        except:
+            logger.exception("addon finished!")
