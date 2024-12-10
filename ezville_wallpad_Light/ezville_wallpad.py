@@ -19,18 +19,15 @@ import os.path
 import re
 
 RS485_DEVICE = {
+    # 전등 스위치
     "light": {
-        "state": {
-            "id": 0x0E,
-            "cmd": 0x81,
-        },
-        "last": {},
-        "power": {
-            "id": 0x0E,
-            "cmd": 0x41,
-            "ack": 0xC1,
-        },
+        "query":    { "id": 0x0E, "cmd": 0x01, },
+        "state":    { "id": 0x0E, "cmd": 0x81, },
+        "last":     { },
+
+        "power":    { "id": 0x0E, "cmd": 0x41, "ack": 0xC1, },
     },
+    # 각방 
     "plug": {
         "state": {"id": 0x39, "cmd": 0x81},
         "power": {"id": 0x39, "cmd": 0x41, "ack": 0xC1},
@@ -75,25 +72,6 @@ DISCOVERY_PAYLOAD = {
             "unit_of_meas": "W",
         },
     ],
-    "cutoff": [
-        {
-            "_intg": "switch",
-            "~": "{prefix}/cutoff/{idn}/power",
-            "name": "{prefix}_light_cutoff_{idn}",
-            "stat_t": "~/state",
-            "cmd_t": "~/command",
-        }
-    ],
-    "energy": [
-        {
-            "_intg": "sensor",
-            "~": "{prefix}/energy/{idn}",
-            "name": "_",
-            "stat_t": "~/current/state",
-            "unit_of_meas": "_",
-            "val_tpl": "_",
-        }
-    ],
 }
 
 STATE_HEADER = {
@@ -114,6 +92,8 @@ ACK_MAP = defaultdict(lambda: defaultdict(dict))
 for device, prop in RS485_DEVICE.items():
     for cmd, code in prop.items():
         if "ack" in code:
+            ACK_MAP[code["id"]] = {}
+            ACK_MAP[code["id"]][code["cmd"]] = {}
             ACK_MAP[code["id"]][code["cmd"]] = code["ack"]
 
 # KTDO: 아래 미사용으로 코멘트 처리
@@ -848,24 +828,9 @@ if __name__ == "__main__":
     init_logger_file()
     start_mqtt_loop()
 
-    if Options["serial_mode"] == "sockets":
-        for _socket in Options["sockets"]:
-            conn = EzVilleSocket(_socket["address"], _socket["port"], _socket["capabilities"])
-            init_connect(conn=conn)
-            thread = threading.Thread(target=daemon, args=(conn,))
-            thread.daemon = True
-            thread.start()
-        while True:
-            time.sleep(10**8)
-    elif Options["serial_mode"] == "socket":
+    if Options["serial_mode"] == "socket":
         logger.info("initialize socket...")
-        conn = EzVilleSocket(Options["socket"]["address"], Options["socket"]["port"])
+        conn = EzVilleSocket()
     else:
         logger.info("initialize serial...")
         conn = EzVilleSerial()
-    if Options["serial_mode"] != "sockets":
-        init_connect(conn=conn)
-        try:
-            daemon(conn=conn)
-        except:
-            logger.exception("addon finished!")
